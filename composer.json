@@ -1,0 +1,23 @@
+{
+    "name": "solve/database",
+    "type": "library",
+    "description": "Database engine",
+    "keywords": ["database","db","solve", "orm", "pdo"],
+    "homepage": "http://github.com/Solve/Database",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alexandr Viniychuk",
+            "email": "alexandr.viniychuk@icloud.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.0",
+        "solve/inflector": "dev-master",
+        "phpunit/phpunit": "*"
+    },
+    "autoload": {
+        "psr-0": { "Solve\\Database\\": "" }
+    },
+    "target-dir": "Solve/Database"
+}
