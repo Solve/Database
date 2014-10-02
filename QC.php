@@ -38,6 +38,7 @@ require_once 'DatabaseService.php';
  * @method QC foldBy($field) use field for folding
  *
  * @method QC delete($where) delete rows with specified criteria
+ * @method QC rawSelect($sql) select fields with specified SQL
  * @method QC select($fields) select fields with specified criteria
  * @method QC insert($data) insert data with specified criteria
  * @method QC replace($data) replace data with specified criteria
@@ -111,7 +112,12 @@ class QC {
         'foldBy'   => array(
             'group' => 'modifiers'
         ),
-
+        'one'       => array(
+            'group' => 'modifiers'
+        ),
+        'rawSelect' => array(
+            'group' => 'modifiers'
+        ),
 
         //system group
         'delete'    => array(
@@ -133,10 +139,6 @@ class QC {
         'replace'    => array(
             'group' => 'system',
             'params'=> 'data'
-        ),
-        'selectOne'  => array(
-            'group' => 'system',
-            'params'=> 'fields'
         ),
 
     );
@@ -255,7 +257,16 @@ class QC {
     }
     public function execute() {
         $result = $this->_adapter->executeQuery($this);
+        if ($this->_type == QC::TYPE_SELECT) {
+            $result = $this->processRows($result);
+        }
         return $result;
+    }
+
+    public function executeOne() {
+        $this->limit(1);
+        $this->_params['modifiers']['one'] = true;
+        return $this->execute();
     }
 
     public static function executeSQL($sql) {
@@ -263,6 +274,30 @@ class QC {
             self::$_staticAdapter = DatabaseService::getAdapter();
         }
         return self::$_staticAdapter->executeSQL($sql);
+    }
+
+    public function processRows($rows) {
+        if (($indexBy   = $this->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy =  $indexBy[0];
+        if (($foldBy    = $this->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy =  $foldBy[0];
+        $use            = $this->getModifier('use');
+        $index = -1;
+        $data =  array();
+
+        foreach($rows as $row) {
+            $item = $row;
+            if ($use) $item = array_key_exists($use[0], $row) ? $row[$use[0]] : null;
+            if ($indexBy) {
+                $index = $row[$indexBy];
+            } else {
+                $index++;
+            }
+            if ($foldBy) {
+                $data[$row[$foldBy]][$index] = $item;
+            } else {
+                $data[$index] = $item;
+            }
+        }
+        return $this->getModifier('one') ? array_shift($data) : $data;
     }
 
     public function getType() {

@@ -70,6 +70,9 @@ class QCExecTest extends \PHPUnit_Framework_TestCase {
             ),
         ), $data, 'select fields of two simple rows');
 
+        $data = QC::create('users')->select('name')->where('id = 1')->executeOne();
+        $this->assertEquals(array('name' => 'Alexandr'), $data, 'Select one value');
+
         $data = QC::create('users')->select('id, name, position')
             ->indexBy('id')->foldBy('position')->use('name')
             ->execute();
@@ -80,6 +83,12 @@ class QCExecTest extends \PHPUnit_Framework_TestCase {
                 )
             ),
             $data, 'Select with foldBy, indexBy and use modifiers');
+
+        $data = QC::create()->rawSelect('select id,name from users')->indexBy('id')->use('name')->execute();
+        $this->assertEquals(array(
+            1=>'Alexandr',
+            2=>'Sergey'
+        ), $data, 'Custom select with modifiers');
 
         $countDeleted = QC::create('users')->delete('id < :d', 3)->execute();
         $this->assertEquals(2, $countDeleted, 'Deleted 2 items');

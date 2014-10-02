@@ -326,43 +326,43 @@ class DBOperator {
     /**
      * Find differences between table structure in DB and $var_info structure
      *
-     * @param array $var_structure array with structure for diff
+     * @param mixed $varStructure array with structure for diff
      * @param string $tableName specified table if not specified in structure
      * @return array table_exists true|false and sql array for altering
      */
-    public function getDifferenceSQL($var_structure, $tableName = null) {
-        if (!$tableName) $tableName = $var_structure['table'];
+    public function getDifferenceSQL($varStructure, $tableName = null) {
+        if (!$tableName) $tableName = $varStructure['table'];
 
         $current_structure = $this->getTableStructure($tableName);
         $res = array('result'=>false, 'sql'=>array());
         if (!$current_structure) {
-            $sql = $this->generateTableSQL($var_structure);
+            $sql = $this->generateTableSQL($varStructure);
             $res['result'] = true;
             $res['sql']['ADD'][] = $sql;
             return $res;
         }
-        if (!isset($var_structure['columns'])) $var_structure['columns'] = array();
-        if (!isset($var_structure['table'])) $var_structure['table'] = $tableName;
+        if (!isset($varStructure['columns'])) $varStructure['columns'] = array();
+        if (!isset($varStructure['table'])) $varStructure['table'] = $tableName;
 
         // synchronizing columns
-        foreach($var_structure['columns'] as $name=>$info) {
-            if (!empty($var_structure['abilities']['mlt']['columns']) && in_array($name, $var_structure['abilities']['mlt']['columns'])) continue;
+        foreach($varStructure['columns'] as $name=>$info) {
+            if (!empty($varStructure['abilities']['mlt']['columns']) && in_array($name, $varStructure['abilities']['mlt']['columns'])) continue;
             if (!is_array($info)) $info = array('type'=>$info);
             if (!isset($info['name'])) $info['name'] = $name;
 
             if (!isset($current_structure['columns'][$name]) && !(isset($info['old_name']) && isset($current_structure['columns'][$info['old_name']]))) {
                 if ((isset($info['auto_increment']))) {
                     unset($info['auto_increment']);
-                    $res['sql']['ADD'][] = 'ALTER TABLE '.$var_structure['table'].' ADD COLUMN '.$this->generateColumnSQL($info);
+                    $res['sql']['ADD'][] = 'ALTER TABLE' . ' ' . $varStructure['table'].' ADD COLUMN '.$this->generateColumnSQL($info);
                     if (!isset($current_structure['indexes']['primary'])) {
-                        $var_structure['indexes']['primary'] = array('columns'=>$name);
+                        $varStructure['indexes']['primary'] = array('columns'=>$name);
                         $current_structure['indexes']['primary'] = array('columns'=>$name);
-                        $res['sql']['ADD'][] = 'ALTER TABLE '.$var_structure['table'].' ADD PRIMARY KEY (`'.$name.'`)';
+                        $res['sql']['ADD'][] = 'ALTER TABLE' . ' ' . $varStructure['table'].' ADD PRIMARY KEY (`'.$name.'`)';
                     }
                     $info['auto_increment'] = true;
-                    $res['sql']['CHANGE'][] = 'ALTER TABLE '.$var_structure['table'].' MODIFY COLUMN '.$this->generateColumnSQL($info);
+                    $res['sql']['CHANGE'][] = 'ALTER TABLE' . ' ' . $varStructure['table'].' MODIFY COLUMN '.$this->generateColumnSQL($info);
                 } else {
-                    $res['sql']['ADD'][]  = 'ALTER TABLE '.$var_structure['table'].' ADD COLUMN '.$this->generateColumnSQL($info);
+                    $res['sql']['ADD'][]  = 'ALTER TABLE' . ' ' . $varStructure['table'].' ADD COLUMN '.$this->generateColumnSQL($info);
                 }
 
             } else {
@@ -382,27 +382,27 @@ class DBOperator {
                 ) {
                     if ((isset($info['auto_increment']) && !(isset($db_info['auto_increment'])))) {
                         if (!isset($current_structure['indexes']['primary'])) {
-                            $var_structure['indexes']['primary'] = array('columns'=>$name);
+                            $varStructure['indexes']['primary'] = array('columns'=>$name);
                             $current_structure['indexes']['primary'] = array('columns'=>$name);
-                            $res['sql']['ADD'][] = 'ALTER TABLE '.$var_structure['table'].' ADD PRIMARY KEY (`'.$name.'`)';
+                            $res['sql']['ADD'][] = 'ALTER TABLE' . ' ' . $varStructure['table'].' ADD PRIMARY KEY (`'.$name.'`)';
                         }
                     }
-                    $res['sql']['CHANGE'][] = 'ALTER TABLE '.$var_structure['table'].' CHANGE COLUMN '.(isset($info['old_name']) ? '' : '`'.$name.'` ').$this->generateColumnSQL($info);
+                    $res['sql']['CHANGE'][] = 'ALTER TABLE' . ' ' . $varStructure['table'].' CHANGE COLUMN '.(isset($info['old_name']) ? '' : '`'.$name.'` ').$this->generateColumnSQL($info);
                 }
             }
         }
         // Dropping unused columns from DB
         foreach($current_structure['columns'] as $name=>$info) {
-            if (!isset($var_structure['columns'][$name])) {
-                $sql_diff = 'ALTER TABLE '.$var_structure['table'].' DROP COLUMN `'.$name.'`';
+            if (!isset($varStructure['columns'][$name])) {
+                $sql_diff = 'ALTER TABLE' . ' ' . $varStructure['table'].' DROP COLUMN `'.$name.'`';
                 $res['sql']['DROP'][] = $sql_diff;
             }
         }
 
-        if (isset($var_structure['indexes'])) {
+        if (isset($varStructure['indexes'])) {
             // synchronizing indexes
-            foreach($var_structure['indexes'] as $name=>$info) {
-                $sql_diff = 'ALTER TABLE '.$var_structure['table'];
+            foreach($varStructure['indexes'] as $name=>$info) {
+                $sql_diff = 'ALTER TABLE' . ' ' . $varStructure['table'];
 
                 if (!isset($current_structure['indexes'][$name])) {
                     if (!isset($info['name'])) $info['name'] = $name;
@@ -416,15 +416,15 @@ class DBOperator {
 
         // Dropping unused indexes from DB
         foreach($current_structure['indexes'] as $name=>$info) {
-            if (!isset($var_structure['indexes'][$name])) {
-                $sql_diff = 'ALTER TABLE '.$var_structure['table'].($name == 'primary' ? ' DROP PRIMARY KEY' : ' DROP KEY `'.$name.'`');
+            if (!isset($varStructure['indexes'][$name])) {
+                $sql_diff = 'ALTER TABLE' . ' ' . $varStructure['table'].($name == 'primary' ? ' DROP PRIMARY KEY' : ' DROP KEY `'.$name.'`');
                 $res['sql']['DROP'][] = $sql_diff;
             }
         }
-        if (isset($var_structure['constraints'])) {
+        if (isset($varStructure['constraints'])) {
             // synchronizing constraints
-            foreach($var_structure['constraints'] as $name=>$info) {
-                $sql_diff = 'ALTER TABLE '.$var_structure['table'];
+            foreach($varStructure['constraints'] as $name=>$info) {
+                $sql_diff = 'ALTER TABLE' . ' ' . $varStructure['table'];
                 if (!isset($current_structure['constraints'][$name])) {
                     $sql_diff .= ' ADD '.$this->generateConstraintSQL($info);
                     $res['sql']['ADD'][] = $sql_diff;;
@@ -710,22 +710,22 @@ class DBOperator {
             $methods_text = '';
             $methods = array();
             $abilities = array();
-            if (!empty($this->_structure[$class_name]['abilities'])) {
-                foreach($this->_structure[$class_name]['abilities'] as $key=>$props) {
-                    $ability = Inflector::camelize($key) . 'Ability';
-                    if (!isset($abilities[$ability])) {
-                        $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability;
-                        $abilities[$ability] = new $abilityClass(null);
-                        $ability_methods = $abilities[$ability]->getPublishedActions();
-                        foreach(array_keys($ability_methods) as $method) {
-                            if (!in_array($method, $methods)) $methods[] = $method;
-                        }
-                    }
-                }
-                foreach($methods as $method) {
-                    $methods_text .= ' * @method ' . $method . '() ' . $method. "()\n";
-                }
-            }
+//            if (!empty($this->_structure[$class_name]['abilities'])) {
+//                foreach($this->_structure[$class_name]['abilities'] as $key=>$props) {
+//                    $ability = Inflector::camelize($key) . 'Ability';
+//                    if (!isset($abilities[$ability])) {
+//                        $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability;
+//                        $abilities[$ability] = new $abilityClass(null);
+//                        $ability_methods = $abilities[$ability]->getPublishedActions();
+//                        foreach(array_keys($ability_methods) as $method) {
+//                            if (!in_array($method, $methods)) $methods[] = $method;
+//                        }
+//                    }
+//                }
+//                foreach($methods as $method) {
+//                    $methods_text .= ' * @method ' . $method . '() ' . $method. "()\n";
+//                }
+//            }
 
             //@todo event dispatcher for project name needed
             $replace = array(
@@ -756,22 +756,22 @@ class DBOperator {
 
             if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
 
-            if ($rebuild_abilities && !empty($this->_structure[$class_name]['abilities'])) {
-                /**
-                 *  @var Model $modelInstance
-                 */
-                $modelInstance = new $class_name;
-                foreach($this->_structure[$class_name]['abilities'] as $ability_name=>$params) {
-                    $ability_name = ucfirst($ability_name);
-                    $ability_class = $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability_name.'Ability';
-                    if (class_exists($ability_class)) {
-                        $this->_abilities[$ability_name] = new $ability_class($modelInstance);
-                        $this->_abilities[$ability_name]->setUp();
-                    }
-                }
-                $this->_structure[$class_name] = $modelInstance->getStructure()->get();
-                if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
-            }
+//            if ($rebuild_abilities && !empty($this->_structure[$class_name]['abilities'])) {
+//                /**
+//                 *  @var Model $modelInstance
+//                 */
+//                $modelInstance = new $class_name;
+//                foreach($this->_structure[$class_name]['abilities'] as $ability_name=>$params) {
+//                    $ability_name = ucfirst($ability_name);
+//                    $ability_class = $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability_name.'Ability';
+//                    if (class_exists($ability_class)) {
+//                        $this->_abilities[$ability_name] = new $ability_class($modelInstance);
+//                        $this->_abilities[$ability_name]->setUp();
+//                    }
+//                }
+//                $this->_structure[$class_name] = $modelInstance->getStructure()->get();
+//                if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
+//            }
         }
     }
 
@@ -839,7 +839,7 @@ class DBOperator {
      * @return string
      */
     public function generateTableSQL($structure) {
-        $sql = 'CREATE TABLE IF NOT EXISTS `'.$structure['table'].'` ('."\n";
+        $sql = 'CREATE TABLE' . ' IF NOT EXISTS `' . $structure['table'].'` (' . "\n";
 
         foreach($structure['columns'] as $column=>$info) {
             if (!is_array($info)) $info = array('type'=>$info);

@@ -95,6 +95,11 @@ class MysqlDBAdapter extends BaseDBAdapter {
     }
 
     private function buildSelect(QC $q) {
+        if ($q->getModifier('rawSelect')) {
+            $sqlArray = $q->getModifier('rawSelect');
+            return $sqlArray[0];
+        }
+
         $sql = 'SELECT ';
 
         $fields = $q->getQueryParams('fields');
@@ -125,38 +130,23 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
+    /**
+     * @param \PDOStatement $res
+     * @return array
+     */
+    public function fetchSelectResult($res) {
+        return $res->rowCount() ? $res->fetchAll(\PDO::FETCH_ASSOC) : array();
+    }
+
     private function executeSelect(QC $q) {
         $sql = $this->buildSelect($q);
 
         $res = $this->_dbh->query($sql);
-        $data =  array();
-        if ($res->rowCount()) {
-            $rows = $res->fetchAll(\PDO::FETCH_ASSOC);
-
-            if (($indexBy   = $q->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy =  $indexBy[0];
-            if (($foldBy    = $q->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy =  $foldBy[0];
-            $use            = $q->getModifier('use');
-            $index = -1;
-            foreach($rows as $row) {
-                $item = $row;
-                if ($use) $item = array_key_exists($use[0], $row) ? $row[$use[0]] : null;
-                if ($indexBy) {
-                    $index = $row[$indexBy];
-                } else {
-                    $index++;
-                }
-                if ($foldBy) {
-                    $data[$row[$foldBy]][$index] = $item;
-                } else {
-                    $data[$index] = $item;
-                }
-            }
-        }
-        return $data;
+        return $this->fetchSelectResult($res);
     }
 
     private function buildInsert(QC $q) {
-        $sql = 'INSERT INTO ' . $this->escapeSqlName($q->getTables()) . ' ';
+        $sql = 'INSERT INTO' . ' ' . $this->escapeSqlName($q->getTables()) . ' ';
 
         $keys = array();
         $data = $q->getQueryParams('data');
@@ -238,7 +228,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
     }
 
     private function buildDelete(QC $q) {
-        $sql = 'DELETE FROM ' . $this->escapeSqlName($q->getTables());
+        $sql = 'DELETE FROM' . ' ' . $this->escapeSqlName($q->getTables());
 
         $c = $q->getCriteria();
         if (!empty($c)) {
