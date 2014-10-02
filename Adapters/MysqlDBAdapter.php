@@ -206,7 +206,21 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $res ? $this->_dbh->lastInsertId() : false;
     }
 
+    private function buildReplace(QC $q) {
+        $sql = $this->buildInsert($q);
+        $sql = str_replace('INSERT', 'REPLACE', $sql);
+
+        return $sql;
+    }
+
+    private function executeReplace(QC $q) {
+        $sql = $this->buildReplace($q);
+        $res = $this->_dbh->query($sql);
+        return $res ? $this->_dbh->lastInsertId() : false;
+    }
+
     private function buildUpdate(QC $q) {
+//        var_dump($q->getQueryParams('data'));die();
         $sql = 'UPDATE ' . $this->escapeSqlName($q->getTables())
                 .' SET '.$this->processData($q->getQueryParams('data'), ', ');
         $c = $q->getCriteria();
@@ -278,9 +292,10 @@ class MysqlDBAdapter extends BaseDBAdapter {
     private function processData($data, $glue = ',') {
         $sql = '';
         if (array_key_exists(0, $data)) {
-            foreach($data as $item) {
-                $sql .= $this->processData($item, $glue);
-            }
+//            foreach($data as $item) {
+//                $sql .= $this->processData($item, $glue);
+//            }
+            $sql .= $this->processParametricCondition($data);
         } else {
             foreach($data as $field => $value) {
                 $sql .=  $glue . ' ' . $this->processParametricCondition(array($field => $value));
@@ -289,6 +304,10 @@ class MysqlDBAdapter extends BaseDBAdapter {
         }
 
         return $sql;
+    }
+
+    public function executeSQL($sql) {
+        return $this->_dbh->query($sql);
     }
 
     private function processParametricCondition($condition) {
@@ -306,11 +325,15 @@ class MysqlDBAdapter extends BaseDBAdapter {
                 $this->_pregParametricParams = $condition;
                 $sql = preg_replace_callback('#:[dsbna]#', array($this, 'onPregParameterCallback'), $condition[0]);
                 $this->_pregParametricParams = $savedParams;
+                $this->_pregParametricCounter = 1;
             }
         } else {
-            if (array_key_exists(0, $condition)) {
+            if (array_key_exists(0, $condition) && is_string($condition[0])) {
                 $sql .= $condition[0];
             } else {
+                if (array_key_exists(0, $condition)) {
+                    $condition = $condition[0];
+                }
                 foreach($condition as $key=>$value) {
                     $sql .=  $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
                 }

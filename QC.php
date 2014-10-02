@@ -37,10 +37,11 @@ require_once 'DatabaseService.php';
  * @method QC indexBy($field) use field as a index
  * @method QC foldBy($field) use field for folding
  *
- * @method QC delete($where) delete the rows with specified criteria
- * @method QC select($fields) delete the rows with specified criteria
- * @method QC insert($data) delete the rows with specified criteria
- * @method QC update($data) delete the rows with specified criteria
+ * @method QC delete($where) delete rows with specified criteria
+ * @method QC select($fields) select fields with specified criteria
+ * @method QC insert($data) insert data with specified criteria
+ * @method QC replace($data) replace data with specified criteria
+ * @method QC update($data) update rows with specified data
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
@@ -123,7 +124,7 @@ class QC {
         ),
         'update'    => array(
             'group' => 'system',
-            'params'=> 'where'
+            'params'=> 'data'
         ),
         'insert'    => array(
             'group' => 'system',
@@ -158,16 +159,33 @@ class QC {
     /**
      * @var MysqlDBAdapter
      */
-    private static $_adapter            = null;
+    private static $_staticAdapter            = null;
+    /**
+     * @var MysqlDBAdapter
+     */
+    private $_adapter                         = null;
 
     public function __construct($tables = null) {
         if ($tables) {
             $this->from($tables);
         }
-        if (empty(self::$_adapter)) {
-            self::$_adapter = DatabaseService::getAdapter();
+        if (empty(self::$_staticAdapter)) {
+            self::$_staticAdapter = DatabaseService::getAdapter();
         }
+        $this->_adapter = self::$_staticAdapter;
         return $this;
+    }
+
+    public static function setStaticAdapter($adapter) {
+        self::$_staticAdapter = $adapter;
+    }
+
+    public static function getStaticAdapter() {
+        return self::$_staticAdapter;
+    }
+
+    public function setAdapter($adapter) {
+        $this->_adapter = $adapter;
     }
 
     public static function create($tables = null) {
@@ -222,8 +240,7 @@ class QC {
     public function build() {
         if ($this->_isBuilded) return true;
 
-
-        $this->_buildedSQL = self::$_adapter->buildQuery($this);
+        $this->_buildedSQL = $this->_adapter->buildQuery($this);
         return $this;
     }
 
@@ -232,18 +249,16 @@ class QC {
 
         return $this->_buildedSQL;
     }
-
-    public function selectOne($fields = null, $run = true) {
-        $data = $this->select($fields, $run);
-        if ($run && !empty($data) && is_array($data)) {
-            return array_shift($data);
-        } else {
-            return $data;
-        }
-    }
-    public function run() {
-        $result = self::$_adapter->executeQuery($this);
+    public function execute() {
+        $result = $this->_adapter->executeQuery($this);
         return $result;
+    }
+
+    public static function executeSQL($sql) {
+        if (empty(self::$_staticAdapter)) {
+            self::$_staticAdapter = DatabaseService::getAdapter();
+        }
+        return self::$_staticAdapter->executeSQL($sql);
     }
 
     public function getType() {
@@ -251,7 +266,11 @@ class QC {
     }
 
     public function data($data) {
-        if (!is_array($data)) $data = array($data);
+        if (func_num_args() > 1) {
+            $data = func_get_args();
+        } else {
+            if (!is_array($data)) $data = array($data);
+        }
         $this->_params['data'] = array_merge($this->_params['data'], $data);
         return $this;
     }
@@ -297,12 +316,10 @@ class QC {
                     $this->_type = $method;
 
                     if (count($params)) {
+//                        if ($method == 'update') {
+//                            var_dump($params, $info);die();
+//                        }
                         call_user_func_array(array($this, $info['params']), $params);
-                    }
-                    if (array_key_exists(1, $params) && $params[1] === false) {
-                        return $this->getSQL();
-                    } else {
-                        return $this->run();
                     }
                 } else {
                     $this->_params[$info['group']][] = array(

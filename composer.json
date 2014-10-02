@@ -13,8 +13,9 @@
     ],
     "require": {
         "php": ">=5.3.0",
-        "solve/inflector": "dev-master",
-        "phpunit/phpunit": "*"
+        "solve/inflector": "*",
+        "solve/storage": "*",
+        "solve/fsservice": "*"
     },
     "autoload": {
         "psr-0": { "Solve\\Database\\": "" }
