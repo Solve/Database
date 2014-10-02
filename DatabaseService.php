@@ -15,7 +15,7 @@ require_once dirname(__FILE__) . '/Adapters/MysqlDBAdapter.php';
  * Class DatabaseService
  * @package Solve\Database
  *
- * Class DatabaseService is used to ...
+ * Class DatabaseService is used to manage database connections
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>

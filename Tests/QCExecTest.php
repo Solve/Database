@@ -23,8 +23,10 @@ class QCExecTest extends \PHPUnit_Framework_TestCase {
         ));
         $storagePath = __DIR__ . '/storage/';
         $DBName = 'solve_test_database';
+
         DBOperator::getInstance($storagePath)
             ->createDB($DBName)->useDB($DBName);
+
         QC::executeSQL('DROP TABLE IF EXISTS users');
         DBOperator::getInstance()->createTable('users', array(
                 'table'   => 'users',
@@ -81,7 +83,6 @@ class QCExecTest extends \PHPUnit_Framework_TestCase {
 
         $countDeleted = QC::create('users')->delete('id < :d', 3)->execute();
         $this->assertEquals(2, $countDeleted, 'Deleted 2 items');
-
     }
 
 }

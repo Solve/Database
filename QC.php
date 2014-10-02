@@ -188,6 +188,10 @@ class QC {
         $this->_adapter = $adapter;
     }
 
+    public function getAdapter() {
+        return $this->_adapter;
+    }
+
     public static function create($tables = null) {
         return new QC($tables);
     }
@@ -316,9 +320,6 @@ class QC {
                     $this->_type = $method;
 
                     if (count($params)) {
-//                        if ($method == 'update') {
-//                            var_dump($params, $info);die();
-//                        }
                         call_user_func_array(array($this, $info['params']), $params);
                     }
                 } else {

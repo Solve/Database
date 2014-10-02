@@ -90,7 +90,7 @@ class QCTest extends \PHPUnit_Framework_TestCase {
         $sql = QC::create('codes')->delete('id = 502')->getSQL();
         $this->assertEquals('DELETE FROM `codes` WHERE ((id = 502))', $sql, 'Delete generator');
 
-        $sql = QC::create('codes')->delete('id = :s', 12)->getSQL();
+        $sql = QC::create('codes')->delete('id = :s', '12')->getSQL();
         $this->assertEquals('DELETE FROM `codes` WHERE ((id = \'12\'))', $sql, 'Delete with params generator id as string');
     }
 
