@@ -35,6 +35,9 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
         self::putTestContent();
     }
 
+    public function testForTest() {
+    }
+
     public function testCreatingLoading() {
         $m = new Model();
         $m->_setName('Product');
@@ -63,6 +66,13 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
 
         $object->setTitle('new title');
         $this->assertEquals('new title', $object->getTitle(), 'setter and getter works fine');
+
+        $product = \Product::loadOne(QC::create()->where('id = :d', 1));
+        $this->assertEquals('1', $product->id, 'loaded by QC');
+
+        $product = \Product::loadOne(QC::create()->rawSelect('select * from products where id = 1'));
+        $this->assertEquals('1', $product->id, 'loaded by QC raw select');
+
     }
 
     public function testAccessors() {
@@ -93,8 +103,8 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
     }
 
     public function testRelations() {
-        $product = \Product::loadOne(2);
-        var_dump($product->category->title);die();
+        $product = \Product::loadOne(QC::create()->where('id = :d', 2));
+//        var_dump($product->id_category);die();
     }
 
 

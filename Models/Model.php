@@ -68,11 +68,15 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
      * @return Model
      */
     protected function _loadOne($criteria) {
-        $criteria = $this->_processCriteria($criteria);
+        if (is_object($criteria) && $criteria->getModifier('rawSelect')) {
+            $qc = $criteria;
+        } else {
+            $criteria = $this->_processCriteria($criteria);
 
-        $qc = QC::create($this->_tableName);
-        if (!empty($criteria)) {
-            $qc->and($criteria);
+            $qc = QC::create($this->_tableName);
+            if (!empty($criteria)) {
+                $qc->and($criteria);
+            }
         }
         $this->setOriginalData($qc->executeOne());
         return $this;
