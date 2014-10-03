@@ -7,7 +7,10 @@
  * created: 13.04.14 17:10
  */
 
-namespace Solve\Database;
+namespace Solve\Database\Tests;
+use Solve\Database\DatabaseService;
+use Solve\Database\QC;
+
 require_once __DIR__ . "/../vendor/autoload.php";
 require_once __DIR__ . "/../QC.php";
 require_once __DIR__ . "/../Models/DBOperator.php";
