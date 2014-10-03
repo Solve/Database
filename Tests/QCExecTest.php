@@ -23,11 +23,8 @@ class QCExecTest extends \PHPUnit_Framework_TestCase {
             'user'  => 'root',
             'pass'  => 'root'
         ));
-        $storagePath = __DIR__ . '/storage/';
         $DBName = 'solve_test_database';
-
-        DBOperator::getInstance($storagePath)
-            ->createDB($DBName)->useDB($DBName);
+        DBOperator::getInstance()->createDB($DBName)->useDB($DBName);
 
         QC::executeSQL('DROP TABLE IF EXISTS users');
         DBOperator::getInstance()->createTable('users', array(

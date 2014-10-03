@@ -8,9 +8,6 @@
  */
 
 namespace Solve\Database;
-use Solve\Database\Adapters\MysqlDBAdapter;
-require_once dirname(__FILE__) . '/Adapters/MysqlDBAdapter.php';
-
 /**
  * Class DatabaseService
  * @package Solve\Database

@@ -9,7 +9,6 @@
 
 namespace Solve\Database\Models;
 use Solve\Storage\ArrayStorage;
-use Solve\Storage\YamlStorage;
 
 /**
  * Class ModelStructure
@@ -29,17 +28,12 @@ class ModelStructure {
      */
     private $_data          = null;
 
-    /**
-     * @var YamlStorage
-     */
-    private $_yaml          = null;
-
     public function __construct($modelName, $data = null) {
         $this->_modelName = $modelName;
         if (!empty($data)) {
             $this->_data->setData($data);
         } else {
-//            $this->_yaml = new YamlStorage('');
+            $this->_data = new ArrayStorage(ModelOperator::getInstance()->getModelStructure($modelName));
         }
     }
 
@@ -48,7 +42,7 @@ class ModelStructure {
      * @return string|null
      */
     public function getPrimaryKey() {
-        return $this->_data->get('indexes/primary/columns/0', null);
+        return $this->_data->getDeepValue('indexes/primary/columns/0', null);
     }
 
     /**
@@ -56,19 +50,50 @@ class ModelStructure {
      * @param string $name
      * @return bool
      */
-    public function isColumnExists($name) {
-        return $this->_data->has('columns/' . $name);
+    public function isColumnExist($name) {
+        $info = $this->_data->getDeepValue('columns/' . $name);
+        return !empty($info);
+    }
+
+    public function addColumn($name, $info) {
+        if (!$this->isColumnExist($name)) {
+            $this->_data->setDeepValue('columns/'.$name, $info);
+        }
+    }
+
+    public function addRelation($name, $info = null) {
+        if (empty($info)) {
+            $info = array(
+                'model' => ucfirst($name),
+                'type'  => 'many_to_one'
+            );
+        }
+        $this->_data->setDeepValue('relations/'.$name, $info);
+    }
+
+    public function saveStructure() {
+        ModelOperator::getInstance()->setStructureForModel($this->_modelName, $this->_data->getArray());
+        ModelOperator::getInstance()->saveModelStructure($this->_modelName);
     }
 
     public function getModelName() {
         return $this->_modelName;
     }
 
-    public function getTable() {
+    public function getTableName() {
         return $this->_data->get('table');
+    }
+
+    public function getColumns() {
+        return $this->_data->get('columns');
+    }
+
+    public function getRelations(){
+        return $this->_data->get('relations');
     }
 
     public function get($key = null) {
         return $this->_data->get($key);
     }
-} 
+
+}

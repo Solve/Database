@@ -43,7 +43,7 @@ class ModelOperator {
     /**
      * @var array all loaded structures
      */
-    private $_structure                     = array();
+    private $_structures                     = array();
 
     private $_abilities                     = array();
 
@@ -96,6 +96,11 @@ class ModelOperator {
         return self::$_instance;
     }
 
+    public static function configureStaticInstance($storagePath) {
+        self::$_instance = new ModelOperator($storagePath);
+        self::$_instance->loadStructureFiles();
+    }
+
 
     public function setStructurePath($path) {
         $this->_structuresPath = $path;
@@ -109,6 +114,14 @@ class ModelOperator {
         return $this->_structuresPath;
     }
 
+    /**
+     * Change models path
+     * @param $path
+     */
+    public function setModelsPath($path) {
+        FSService::makeWritable($path);
+        $this->_modelsPath = $path;
+    }
 
     /**
      * Change store path
@@ -148,7 +161,7 @@ class ModelOperator {
             $data = array_merge($data, array(ucfirst($model_name) => $data = Yaml::parse(file_get_contents($file))));
         }
         $data = self::fixYamlStructures($data);
-        $this->_structure = $data;
+        $this->_structures = $data;
     }
 
 
@@ -158,30 +171,59 @@ class ModelOperator {
      * @param string $modelName
      * @return mixed
      */
-    public function getYamlStructure($modelName) {
-        if (empty($this->_structure)) {
+    public function getModelStructure($modelName) {
+        if (empty($this->_structures)) {
             $this->loadStructureFiles($this->_structuresPath);
         }
-
         $modelName = ucfirst($modelName);
-        if (empty($this->_structure[$modelName])) {
+        if (empty($this->_structures[$modelName])) {
             return array();
         }
-        return $this->_structure[$modelName];
+        return $this->_structures[$modelName];
     }
 
+    public function setStructureForModel($modelName, $structure) {
+        $modelName = ucfirst($modelName);
+        $this->_structures[$modelName] = $structure;
+    }
+
+    /**
+     * @param string $modelName
+     * @param bool $setToStructure set the structure to internal storage
+     * @return array
+     */
+    public function generateBasicStructure($modelName, $setToStructure = true) {
+
+        $basicStructure = array(
+            'table'     => Inflector::pluralize(Inflector::underscore($modelName)),
+            'columns'   => array(
+                'id'    => array(
+                    'type'  => 'int(11) unsigned',
+                    'auto_increment'    => true
+                ),
+                'title' => array(
+                    'type'  => 'varchar(255)'
+                ),
+            ),
+            'indexes'   => array(
+                'primary'   => array( 'columns' => array('id') )
+            )
+        );
+        if ($setToStructure) {
+            $this->setStructureForModel($modelName, $basicStructure);
+        }
+        return $basicStructure;
+    }
 
     /**
      * Save structure to relative YML file
      *
-     * @param string $model_name
-     * @param array $structure
+     * @param string $modelName
      * @return bool
      */
-    public function saveYamlStructure($model_name, $structure) {
-
-        $file_name  = strtolower($model_name);
-        $model_name = ucfirst($model_name);
+    public function saveModelStructure($modelName) {
+        $file_name  = strtolower($modelName);
+        $modelName = ucfirst($modelName);
         if (is_file($this->_structuresPath. $file_name . '.yml' )) {
             unlink($this->_structuresPath. $file_name . '.yml');
         }
@@ -197,70 +239,64 @@ class ModelOperator {
                 $full_structure[ucfirst($key)] = $item;
             }
         }
-        $structure = self::fixYamlStructures($structure, true);
+        $structure = self::fixYamlStructures($this->_structures[$modelName], true);
         if ($this->_isSeparateStorage) {
-            if (isset($full_structure[$model_name])) {
-                unset($full_structure[$model_name]);
+            if (isset($full_structure[$modelName])) {
+                unset($full_structure[$modelName]);
             }
             if (!empty($full_structure)) {
                 file_put_contents($this->_structuresPath. 'structure.yml', Yaml::dump($full_structure, 6, 2));
             } else {
                 if (is_file($this->_structuresPath. 'structure.yml')) @unlink($this->_structuresPath. 'structure.yml');
             }
-            file_put_contents($this->_structuresPath. $model_name .'.yml', Yaml::dump($structure, 6, 2));
+            file_put_contents($this->_structuresPath. $modelName .'.yml', Yaml::dump($structure, 6, 2));
 
         } else {
-            $full_structure[$model_name] = $structure;
+            $full_structure[$modelName] = $structure;
             file_put_contents($this->_structuresPath. 'structure.yml', Yaml::dump($full_structure, 6, 2));
         }
-        $this->_structure[$model_name] = $structure;
+        $this->_structures[$modelName] = $structure;
         return true;
     }
 
 
     /**
-     * Generate file with BaseClass and Child Class if it's not extists
-     * @param string|array $classes_names
-     * @param bool $rebuild_abilities
-     * @param bool $updateStructure
+     * Generate Model file if it's not exist
+     * @param string $className
      * @return void
      * @throws \Exception if no structure defined
      */
-    public function generateModelClass($classes_names = null, $rebuild_abilities = true, $updateStructure = true) {
-        if (is_null($classes_names)) {
-            $classes_names = array_keys($this->_structure);
-        } elseif (is_string($classes_names)) {
-            $classes_names = array($classes_names);
+    public function generateModelClass($className) {
+
+        $className = ucfirst($className);
+
+        if (empty($this->_structures[$className])) $this->loadStructureFiles($this->_structuresPath);
+        if (empty($this->_structures[$className])) {
+            throw new \Exception('There is no structure defined for '.$className);
         }
 
+        $baseClassName = 'Base'.$className;
+        $baseClassPath = $this->_storagePath . 'bases/' . $baseClassName . '.php';
+        FSService::makeWritable($this->_modelsPath);
         FSService::makeWritable($this->_storagePath . 'bases/');
-        foreach($classes_names as $class_name) {
 
-            $class_name = ucfirst($class_name);
-            $base_class_name = 'Base'.$class_name;
-
-            if (empty($this->_structure[$class_name])) $this->loadStructureFiles($this->_structuresPath);
-            if (empty($this->_structure[$class_name])) {
-                throw new \Exception('There is no structure defined for '.$class_name);
+        $propertiesText = '';
+        $methodsText = '';
+        foreach($this->_structures[$className]['columns'] as $key=>$props) {
+            $propertiesText .= ' * @property mixed '.$key. "\n";
+            $methodsText    .= ' * @method mixed get' . Inflector::camelize($key) . '()'. "\n";
+            $methodsText    .= ' * @method '.$className.' set' . Inflector::camelize($key) . '($value)'. "\n";
+        }
+        if (!empty($this->_structures[$className]['relations'])) {
+            foreach($this->_structures[$className]['relations'] as $key=>$props) {
+                $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'slModel') . ' ' . $key. "\n";
             }
-            $base_class_path = $this->_storagePath . 'bases/' . $base_class_name . '.php';
-            $template = file_get_contents(dirname(__FILE__). '/_baseTemplate.php');
-
-            $structure_array = '$_structure = ' . Inflector::dumpAsString($this->_structure[$class_name], 1).';';
-
-
-            $properties = '';
-            foreach($this->_structure[$class_name]['columns'] as $key=>$props) {
-                $properties .= ' * @property mixed '.$key. "\n";
-            }
-            if (!empty($this->_structure[$class_name]['relations'])) {
-                foreach($this->_structure[$class_name]['relations'] as $key=>$props) {
-                    $properties .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'slModel') . ' ' . $key. "\n";
-                }
-            }
-            $methods_text = '';
-            $methods = array();
-            $abilities = array();
+        }
+        if (!empty($propertiesText)) {
+            $propertiesText = substr($propertiesText, 0, -1);
+        }
+//        $methods = array();
+//        $abilities = array();
 //            if (!empty($this->_structure[$class_name]['abilities'])) {
 //                foreach($this->_structure[$class_name]['abilities'] as $key=>$props) {
 //                    $ability = Inflector::camelize($key) . 'Ability';
@@ -274,38 +310,34 @@ class ModelOperator {
 //                    }
 //                }
 //                foreach($methods as $method) {
-//                    $methods_text .= ' * @method ' . $method . '() ' . $method. "()\n";
+//                    $methodsText .= ' * @method ' . $method . '() ' . $method. "()\n";
 //                }
 //            }
 
-            //@todo event dispatcher for project name needed
-            $replace = array(
-                '__BASENAME__'              => $base_class_name,
-                '__NAME__'                  => $class_name,
-                '__PROPERTIES__'            => $properties . "\n" . $methods_text,
-                '__DATE__'                  => date('d.m.Y H:i:s'),
-                '__PROJECT__'               => '',
-                '$_structure = array();'    => $structure_array
-            );
-            $template = str_replace(array_keys($replace), array_values($replace), $template);
+        //@todo event dispatcher for project name needed
+        $replace = array(
+            '__BASENAME__'              => $baseClassName,
+            '__NAME__'                  => $className,
+            '__PROPERTIES__'            => $propertiesText . (empty($methodsText) ? '' : "\n" . $methodsText),
+            '__DATE__'                  => date('d.m.Y H:i:s'),
+            '__PROJECT__'               => ''
+        );
+        $baseClassTemplate = file_get_contents(__DIR__. '/_baseTemplate.php');
+        $baseClassTemplate = str_replace(array_keys($replace), array_values($replace), $baseClassTemplate);
 
-            if (is_file($base_class_path)) @unlink($base_class_path);
-            if (is_file($base_class_path)) {
-                throw new \Exception('Cannot overwrite old Base class for '.$base_class_name);
-            }
+        if (is_file($baseClassPath)) unlink($baseClassPath);
+        if (is_file($baseClassPath)) {
+            throw new \Exception('Cannot overwrite old Base class for '.$baseClassPath);
+        }
+        file_put_contents($baseClassPath, $baseClassTemplate);
 
-            file_put_contents($base_class_path, $template);
-            chmod($base_class_path, 0777);
-            if (!is_file($this->_modelsPath . $class_name . '.php')) {
-                $template = file_get_contents(dirname(__FILE__). '/_modelTemplate.php');
-                $template = str_replace(array_keys($replace), array_values($replace), $template);
-                FSService::makeWritable($this->_modelsPath);
-                file_put_contents($this->_modelsPath . $class_name . '.php', $template);
-            }
-//            slAutoloader::getInstance()->addDir($this->_storagePath . 'bases/');
-//            slAutoloader::getInstance()->addDir($this->_modelsPath);
-
-            if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
+        chmod($baseClassPath, 0777);
+        if (!is_file($this->_modelsPath . $className . '.php')) {
+            $modelClassTemplate = file_get_contents(dirname(__FILE__). '/_modelTemplate.php');
+            $modelClassTemplate = str_replace(array_keys($replace), array_values($replace), $modelClassTemplate);
+            FSService::makeWritable($this->_modelsPath);
+            file_put_contents($this->_modelsPath . $className . '.php', $modelClassTemplate);
+        }
 
 //            if ($rebuild_abilities && !empty($this->_structure[$class_name]['abilities'])) {
 //                /**
@@ -323,9 +355,22 @@ class ModelOperator {
 //                $this->_structure[$class_name] = $modelInstance->getStructure()->get();
 //                if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
 //            }
-        }
     }
 
+    public function generateAllModelClasses() {
+        $models = array_keys($this->_structures);
+        foreach($models as $model) $this->generateModelClass($model);
+    }
+
+    public function updateDBForModel($modelName, $safeUpdate = true) {
+        DBOperator::getInstance()->updateDBFromStructure($this->getModelStructure($modelName), $safeUpdate);
+        return $this;
+    }
+
+    public function updateDBForAllModels($safeUpdate = true) {
+        $models = array_keys($this->_structures);
+        foreach($models as $model) $this->updateDBForModel($model, $safeUpdate);
+    }
 
     /**
      * Dumps current database data to YML files
@@ -335,7 +380,7 @@ class ModelOperator {
         if (!empty($models)) {
             if (!is_array($models)) $models = array($models);
         } else {
-            $models = array_keys($this->_structure);
+            $models = array_keys($this->_structures);
         }
 
         $data_dir = $this->_storagePath . 'data/';
@@ -343,12 +388,12 @@ class ModelOperator {
         foreach($models as $model) {
             $model      = ucfirst($model);
             $file_name  = $data_dir . strtolower($model).'.yml';
-            if (!isset($this->_structure[$model])) continue;
+            if (!isset($this->_structures[$model])) continue;
 
             if (is_file($file_name)) {
                 unlink($file_name);
             }
-            $data         = QC::create($this->_structure[$model]['table'])->execute();
+            $data         = QC::create($this->_structures[$model]['table'])->execute();
             file_put_contents($file_name, Yaml::dump($data, 6, 2));
         }
     }
@@ -362,20 +407,20 @@ class ModelOperator {
         if (!empty($models)) {
             if (!is_array($models)) $models = array($models);
         } else {
-            $models = array_keys($this->_structure);
+            $models = array_keys($this->_structures);
         }
 
         $data_dir = $this->_storagePath . 'data/';
         foreach($models as $model) {
             $model      = ucfirst($model);
             $file_name  = $data_dir . strtolower($model).'.yml';
-            if (!isset($this->_structure[$model]) || !is_file($file_name)) continue;
+            if (!isset($this->_structures[$model]) || !is_file($file_name)) continue;
             $data       = Yaml::parse(file_get_contents($file_name));
             if (!is_array($data)) continue;
 
             QC::executeSQL('SET FOREIGN_KEY_CHECKS=0');
-            QC::executeSQL('TRUNCATE `'.$this->_structure[$model]['table'].'`');
-            QC::create($this->_structure[$model]['table'])->insert($data)->execute();
+            QC::executeSQL('TRUNCATE `'.$this->_structures[$model]['table'].'`');
+            QC::create($this->_structures[$model]['table'])->insert($data)->execute();
         }
     }
 
@@ -444,7 +489,7 @@ class ModelOperator {
     static public function calculateRelationVariables(Model $model, $r, $relation_name) {
         //@todo improve type detection
         $type           = isset($r['type']) ? $r['type'] : 'many_to_one';
-        $local_table    = $model->_getStructure()->getTable();
+        $local_table    = $model->_getStructure()->getTableName();
         $related_model  = null;
 
         $local_key      = isset($r['local_key']) ? $r['local_key'] : $model->_getStructure()->getPrimaryField();
@@ -460,7 +505,7 @@ class ModelOperator {
         if (($type == 'one_to_many') || ($type == 'one_to_one')) {
             $auto_local_field = isset($ms['columns']['id_'.Inflector::underscore($model->_getName())]) ? 'id_'.Inflector::underscore($model->_getName()) : $local_key;
         } elseif($type == 'many_to_one') {
-            $auto_local_field = $model->_getStructure()->isColumnExists('id_'.Inflector::underscore($related_model)) ? 'id_'.Inflector::underscore($related_model) : $local_key;
+            $auto_local_field = $model->_getStructure()->isColumnExist('id_'.Inflector::underscore($related_model)) ? 'id_'.Inflector::underscore($related_model) : $local_key;
         } elseif($type == 'many_to_many') {
             $auto_local_field = 'id_'.Inflector::underscore($model->_getName());
             $auto_foreign_field = 'id_'.Inflector::underscore($ms ? $ms->getModelName() : Inflector::singularize($relation_name));

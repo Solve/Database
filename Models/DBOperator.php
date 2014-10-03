@@ -11,14 +11,13 @@ namespace Solve\Database\Models;
 use Solve\Database\QC;
 use Solve\Utils\FSService;
 use Solve\Utils\Inflector;
-use Symfony\Component\Yaml\Yaml;
 
 
 /**
  * Class DBOperator
  * @package Solve\Database\Models
  *
- * Class DBOperator is used to ...
+ * Class DBOperator is used to work with database
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
@@ -47,14 +46,6 @@ class DBOperator {
         return self::$_instance;
     }
 
-    /**
-     * Change models path
-     * @param $path
-     */
-    public function setModelsPath($path) {
-        FSService::makeWritable($path);
-        $this->_modelsPath = $path;
-    }
 
     /**
      * Using for creating database
@@ -109,29 +100,29 @@ class DBOperator {
 
     /**
      * Get Full information about table structure and return it as array with keys
-     * @param string $table_name
+     * @param string $tableName
+     * @param bool $forceReload
      * @return array structure
      */
-    public function getTableStructure($table_name) {
+    public function getTableStructure($tableName, $forceReload = false) {
 
-        if (empty($this->_tables[$table_name])) {
+        if (empty($this->_tables[$tableName]) || $forceReload) {
             try {
-                $res = QC::executeSQL('SHOW CREATE TABLE `'.$table_name.'`');
+                $res = QC::executeSQL('SHOW CREATE TABLE `'.$tableName.'`');
             } catch (\Exception $e) {
                 return null;
             }
-
         } else {
-            return $this->_tables[$table_name];
+            return $this->_tables[$tableName];
         }
 
-        $this->_tables[$table_name] = array();
+        $this->_tables[$tableName] = array();
         if ($res->rowCount()) {
             $res = $res->fetchAll(\PDO::FETCH_NUM);
             foreach($res as $row) {
 
-                $this->_tables[$table_name] = array(
-                    'table'			=>$table_name,
+                $this->_tables[$tableName] = array(
+                    'table'			=>$tableName,
                     'columns'		=>array(),
                     'indexes'		=>array(),
                     'constraints'	=>array(),
@@ -187,7 +178,7 @@ class DBOperator {
                                 if ($column['default'] === false) $column['default'] = '';
                             }
                         }
-                        $this->_tables[$table_name]['columns'][$column['name']] = $column;
+                        $this->_tables[$tableName]['columns'][$column['name']] = $column;
                     } else if (($pos = strpos($row, 'KEY')) !== false) {
                         $key_start = strpos($row, '`')+1;
 
@@ -220,21 +211,21 @@ class DBOperator {
 
 //							vd('constraint', $row, '!@#');
 
-                            $this->_tables[$table_name]['constraints'][$name] = $con;
+                            $this->_tables[$tableName]['constraints'][$name] = $con;
                         } elseif (strpos($row, 'PRIMARY') !== false) {
                             $key = substr($row, $key_start, strpos($row, '`', $key_start+1)-$key_start);
-                            $this->_tables[$table_name]['indexes']['primary'] = array('columns'=>explode(',', $key), 'type'=>'primary');
+                            $this->_tables[$tableName]['indexes']['primary'] = array('columns'=>explode(',', $key), 'type'=>'primary');
                         } else {
                             $name = substr($row, $key_start, strpos($row, '`', $key_start+1)-$key_start);
                             $pos = strpos($row, '(')+1;
                             $key = str_replace('`', '', substr($row, $pos, strpos($row, ')') - $pos));
                             $key = explode(',', $key);
                             $item = array('type' => (strpos($row, 'UNIQUE') !== false) ? 'unique' : 'simple', 'columns'=>$key);
-                            $this->_tables[$table_name]['indexes'][$name] = $item;
+                            $this->_tables[$tableName]['indexes'][$name] = $item;
                         }
                     }
                 }
-                return $this->_tables[$table_name];
+                return $this->_tables[$tableName];
             }
         }
         return array();
@@ -251,7 +242,7 @@ class DBOperator {
     public function getDifferenceSQL($varStructure, $tableName = null) {
         if (!$tableName) $tableName = $varStructure['table'];
 
-        $current_structure = $this->getTableStructure($tableName);
+        $current_structure = $this->getTableStructure($tableName, true);
         $res = array('result'=>false, 'sql'=>array());
         if (!$current_structure) {
             $sql = $this->generateTableSQL($varStructure);
@@ -369,12 +360,16 @@ class DBOperator {
         $diffs = $this->getDifferenceSQL($structure);
         if ($diffs['result'] === true) {
             QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
-            if (!empty($diffs['sql']['ADD'])) QC::executeSQL($diffs['sql']['ADD']);
+            if (!empty($diffs['sql']['ADD'])) {
+                foreach($diffs['sql']['ADD'] as $sql) QC::executeSQL($sql);
+            }
             if (!empty($diffs['sql']['CHANGE'])) {
-                QC::executeSQL($diffs['sql']['CHANGE']);
+                foreach($diffs['sql']['CHANGE'] as $sql) QC::executeSQL($sql);
             }
 
-            if (!empty($diffs['sql']['DROP']) && !$safeUpdate) QC::executeSQL($diffs['sql']['DROP']);
+            if (!empty($diffs['sql']['DROP']) && !$safeUpdate) {
+                foreach($diffs['sql']['DROP'] as $sql) QC::executeSQL($sql);
+            }
         }
     }
     //@todo update model from db

@@ -9,8 +9,6 @@
 
 namespace Solve\Database;
 use Solve\Database\Adapters\MysqlDBAdapter;
-use Solve\Database\DatabaseService;
-require_once 'DatabaseService.php';
 
 
 /**
