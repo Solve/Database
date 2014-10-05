@@ -23,16 +23,15 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @var ModelStructure
      */
-    private $_structure = null;
+    private $_structure      = null;
 
-    private $_tableName      = null;
+    private $_tableName;
+    private $_primaryKey;
     private $_data           = array();
     private $_originalData   = array();
     private $_changedData    = array();
     private $_isNew          = true;
     private $_invokedGetters = array();
-    private $_primaryKey;
-
 
     /**
      * @var null|string instance model name
@@ -41,7 +40,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     public function __construct($data = array()) {
         $this->_name      = get_called_class();
-        $this->_structure = new ModelStructure($this->_name);
+        $this->_structure = ModelStructure::getInstanceForModel($this->_name);
         $this->_tableName = $this->_structure->getTableName();
         $this->_primaryKey = $this->_structure->getPrimaryKey();
         $this->configure();
@@ -113,7 +112,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     public function mergeWithData($data) {
         foreach($data as $key=>$value) {
             if ($key != $this->_primaryKey && (
-                (!array_key_exists($key, $this->_data) && $this->_structure->isColumnExist($key))
+                (!array_key_exists($key, $this->_data) && $this->_structure->hasColumn($key))
                     || (array_key_exists($key, $this->_data) && $value != $this->_data[$key])
                 )) {
                 $this->offsetSet($key, $value);
@@ -207,18 +206,27 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function &__get($key) {
+        // if key is exists - return it
+        if (array_key_exists($key, $this->_data)) return $this->_data[$key];
+
         $getterName = Inflector::camelize($key);
         $method     = 'get' . $getterName;
         $default    = null;
 
+        // check for getter
         if (method_exists($this, $method) && !array_key_exists($getterName, $this->_invokedGetters)) {
             $this->_data[$key] = $this->_invokedGetters[$getterName] = $this->$method();
             return $this->_data[$key];
+        // check for relation
+        } elseif ($this->_structure->hasRelation($key) && !$this->_isNew) {
+            $mr = ModelRelation::getInstanceForModel($this);
+            $mr->loadRelative($this, $key);
         }
-        if (!array_key_exists($key, $this->_data)) {
+        if (array_key_exists($key, $this->_data)) {
+            return $this->_data[$key];
+        } else {
             return $default;
         }
-        return $this->_data[$key];
     }
 
     public function __call($method, $params) {

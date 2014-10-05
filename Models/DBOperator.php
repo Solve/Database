@@ -73,10 +73,11 @@ class DBOperator {
     /**
      * Drop specified Database
      * @param null $DBName
-     * @return mixed
+     * @return DBOperator
      */
     public function dropDB($DBName = null) {
-        return QC::executeSQL('DROP DATABASE '.$DBName);
+        QC::executeSQL('DROP DATABASE '.$DBName);
+        return $this;
     }
 
     /**

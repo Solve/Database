@@ -28,6 +28,8 @@ class ModelStructure {
      */
     private $_data          = null;
 
+    private static $_modelInstances = array();
+
     public function __construct($modelName, $data = null) {
         $this->_modelName = $modelName;
         if (!empty($data)) {
@@ -35,6 +37,17 @@ class ModelStructure {
         } else {
             $this->_data = new ArrayStorage(ModelOperator::getInstance()->getModelStructure($modelName));
         }
+    }
+
+    /**
+     * @param $modelName
+     * @return ModelStructure
+     */
+    public static function getInstanceForModel($modelName) {
+        if (empty(self::$_modelInstances[$modelName])) {
+            self::$_modelInstances[$modelName] = new self($modelName);
+        }
+        return self::$_modelInstances[$modelName];
     }
 
     /**
@@ -50,30 +63,32 @@ class ModelStructure {
      * @param string $name
      * @return bool
      */
-    public function isColumnExist($name) {
+    public function hasColumn($name) {
         $info = $this->_data->getDeepValue('columns/' . $name);
         return !empty($info);
     }
 
-    public function addColumn($name, $info) {
-        if (!$this->isColumnExist($name)) {
-            $this->_data->setDeepValue('columns/'.$name, $info);
-        }
+    public function hasRelation($name) {
+        $info = $this->_data->getDeepValue('relations/' . $name, null);
+        return !is_null($info);
     }
 
-    public function addRelation($name, $info = null) {
-        if (empty($info)) {
-            $info = array(
-                'model' => ucfirst($name),
-                'type'  => 'many_to_one'
-            );
+    public function addColumn($name, $info) {
+        if (!$this->hasColumn($name)) {
+            $this->_data->setDeepValue('columns/'.$name, $info);
         }
+        return $this;
+    }
+
+    public function addRelation($name, $info = array()) {
         $this->_data->setDeepValue('relations/'.$name, $info);
+        return $this;
     }
 
     public function saveStructure() {
         ModelOperator::getInstance()->setStructureForModel($this->_modelName, $this->_data->getArray());
         ModelOperator::getInstance()->saveModelStructure($this->_modelName);
+        return $this;
     }
 
     public function getModelName() {
@@ -90,6 +105,10 @@ class ModelStructure {
 
     public function getRelations(){
         return $this->_data->get('relations');
+    }
+
+    public function getRelationInfo($name) {
+        return $this->_data->getDeepValue('relations/' . $name);
     }
 
     public function get($key = null) {

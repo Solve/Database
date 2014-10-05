@@ -8,32 +8,15 @@
  */
 
 
-namespace Solve\Database\Tests\Model;
+namespace Solve\Database\Tests;
 
 require_once 'test_autoloader.php';
-use Solve\Database\DatabaseService;
-use Solve\Database\Models\DBOperator;
 use Solve\Database\Models\Model;
 use Solve\Database\Models\ModelOperator;
 use Solve\Database\Models\ModelStructure;
 use Solve\Database\QC;
-use Solve\Utils\FSService;
 
-class ModelTest extends \PHPUnit_Framework_TestCase {
-
-
-    public static function setUpBeforeClass() {
-        DatabaseService::configProfile(array(
-            'Product' => 'root',
-            'pass'    => 'root'
-        ));
-        $DBName = 'solve_test_database';
-        DBOperator::getInstance()->createDB($DBName)->useDB($DBName);
-        $storagePath = __DIR__ . '/storage/';
-        FSService::unlinkRecursive($storagePath);
-
-        self::putTestContent();
-    }
+class ModelTest extends SolveDatabaseTestBasic {
 
     public function testForTest() {
     }
@@ -102,24 +85,14 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
         ), $object->getArray(), 'Newly created object merged and saved');
     }
 
-    public function testRelations() {
-        $product = \Product::loadOne(QC::create()->where('id = :d', 2));
-//        var_dump($product->id_category);die();
-    }
-
-
-    private static function putTestContent() {
+    protected static function putTestContent() {
         QC::executeSQL('DROP TABLE IF EXISTS products');
-        QC::executeSQL('DROP TABLE IF EXISTS categories');
         $storagePath = __DIR__ . '/storage/';
 
         $mo = ModelOperator::getInstance($storagePath);
         $mo->generateBasicStructure('Product');
-        $mo->generateBasicStructure('Category');
-
         $ms = new ModelStructure('Product');
         $ms->addColumn('id_category', array('type' => 'int(11) unsigned'));
-        $ms->addRelation('category');
         $ms->saveStructure();
 
         $mo->generateAllModelClasses();
@@ -127,7 +100,6 @@ class ModelTest extends \PHPUnit_Framework_TestCase {
         require_once $storagePath . 'bases/BaseProduct.php';
         require_once $storagePath . 'classes/Product.php';
         QC::create('products')->insert(array('title' => 'Macbook air'))->execute();
-        QC::create('categories')->insert(array('title' => 'Notebooks'))->execute();
 
         $testProductFileContent = <<<TEXT
 <?php
