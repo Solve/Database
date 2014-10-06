@@ -8,6 +8,7 @@
  */
 
 namespace Solve\Database\Models;
+
 use Solve\Database\QC;
 
 /**
@@ -48,13 +49,12 @@ class ModelRelation {
     }
 
     /**
-     * @param Model|ModelCollection $caller
-     * @param string $relationName
+     * @param $caller
+     * @param $relationName
+     * @return $this
+     * @throws \Exception
      */
     public function loadRelative($caller, $relationName) {
-        $config = $this->_structure->getRelationInfo($relationName);
-        $ids    = ModelOperator::getIDs($caller);
-
         /**
          * @var $localKey
          * @var $localField
@@ -63,26 +63,71 @@ class ModelRelation {
          * @var $localTable
          * @var $foreignTable
          * @var $manyTable
-         * @var $type
-         * @var $relatedModel
+         * @var $relationType
+         * @var $relatedModelName
          * @var $hydration
          * @var $fieldsToRetrieve
+         * @var $relationToMany
          */
-        extract(ModelOperator::calculateRelationVariables($caller, $relationName));
+        $varsToExport = ModelOperator::calculateRelationVariables($caller, $relationName);
+//        var_dump($varsToExport);die();
+        extract($varsToExport);
 
-        $relatedIds = array();
-        if ($type == 'many_to_one') {
-            $relatedIds = ModelOperator::getFieldArray($caller, $localField);
-        }
-        if (empty($relatedIds)) return false;
+        $foreignIds     = array();
+        $idsMap         = array();
+        $originalCaller = null;
 
-        if ($hydration == 'simple') {
-            $data = QC::create($foreignTable)->select($fieldsToRetrieve)
-                ->where(array($foreignField . '.' . $foreignKey => $relatedIds))
-                ->indexBy($foreignKey)
-                ->execute();
-            $caller[$relationName] = $data;
+        if (($caller instanceof Model) && $caller->hasCollectionReference()) {
+            $originalCaller = $caller;
+            $caller = $caller->getCollectionReference();
         }
+        if ($relationType == 'many_to_one') {
+            $foreignIds = ModelOperator::getFieldArray($caller, $localField);
+        } elseif ($relationToMany) {
+            $localIds = ModelOperator::getIDs($caller);
+
+            $tableToSelect = $manyTable;
+            if ($relationType == 'one_to_many') {
+                $tableToSelect = $foreignTable;
+            }
+            $idsMap = QC::create($tableToSelect)->where(array($tableToSelect . '.' . $foreignField => $localIds))
+                        ->select($foreignKey . ', ' . $foreignField)
+                        ->foldBy($foreignField)
+                        ->use($foreignKey)
+                        ->execute();
+            foreach ($idsMap as $value) {
+                $foreignIds = array_merge($foreignIds, $value);
+            }
+        }
+        $foreignIds = array_unique($foreignIds);
+        if (empty($foreignIds)) {
+            return false;
+        } elseif ($foreignKey == 'id') {
+            $ids = array();
+            foreach ($foreignIds as $key => $value) {
+                $ids[] = intval($value);
+            }
+            $foreignIds = $ids;
+        }
+
+        /**
+         * @var ModelCollection $relatedCollection
+         */
+        $relatedCollection = call_user_func(array($relatedModelName, 'loadList'), $foreignIds);
+        $callerObjects     = ($caller instanceof ModelCollection) ? $caller : array($caller);
+
+        /**
+         * @var Model $object
+         */
+        foreach ($callerObjects as $object) {
+            if (substr($relationType, '-6') == 'to_one') {
+                $relationValue = $relatedCollection->getOneByPK($object[$localField]);
+            } else {
+                $relationValue = $relatedCollection->getSubCollectionByPKs($idsMap[$object->getID()]);
+            }
+            $object->_setRawFieldValue($relationName, $relationValue);
+        }
+        return $this;
     }
 
 } 

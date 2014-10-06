@@ -361,16 +361,9 @@ class DBOperator {
         $diffs = $this->getDifferenceSQL($structure);
         if ($diffs['result'] === true) {
             QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
-            if (!empty($diffs['sql']['ADD'])) {
-                foreach($diffs['sql']['ADD'] as $sql) QC::executeSQL($sql);
-            }
-            if (!empty($diffs['sql']['CHANGE'])) {
-                foreach($diffs['sql']['CHANGE'] as $sql) QC::executeSQL($sql);
-            }
-
-            if (!empty($diffs['sql']['DROP']) && !$safeUpdate) {
-                foreach($diffs['sql']['DROP'] as $sql) QC::executeSQL($sql);
-            }
+            if (!empty($diffs['sql']['ADD'])) QC::executeArrayOfSQL($diffs['sql']['ADD']);
+            if (!empty($diffs['sql']['CHANGE'])) QC::executeArrayOfSQL($diffs['sql']['CHANGE']);
+            if (!empty($diffs['sql']['DROP']) && !$safeUpdate) QC::executeArrayOfSQL($diffs['sql']['DROP']);
         }
     }
     //@todo update model from db
@@ -384,11 +377,10 @@ class DBOperator {
     public function updateDBRelations($modelName, $structure) {
         if (empty($structure['relations'])) return true;
 
-        foreach($structure['relations'] as $r_name=>$r) {
-            $model_object = new $modelName;
-            $info = ModelOperator::calculateRelationVariables($model_object, $r, $r_name);
-            unset($model_object);
-            switch($info['type']) {
+        $modelObject = new $modelName();
+        foreach($structure['relations'] as $relationName => $relationInfo) {
+            $info = ModelOperator::calculateRelationVariables($modelObject, $relationName);
+            switch($info['relationType']) {
                 case 'many_to_many':
                     $this->updateManyTable($info);
                     break;
@@ -407,46 +399,46 @@ class DBOperator {
      */
     public function updateManyTable($info) {
         $structure = array(
-            'table'     => $info['many_table'],
+            'table'     => $info['manyTable'],
             'columns'   => array(),
             'indexes'   => array(),
             'constraints'   => array(),
         );
 
 
-        $local_name = Inflector::singularize($info['local_table']);
-        $foreign_name = Inflector::singularize($info['foreign_table']);
+        $localName = Inflector::singularize($info['localTable']);
+        $foreignName = Inflector::singularize($info['foreignTable']);
 
         $structure['columns']['id'] = array('type' => 'int(11) unsigned', 'auto_increment'=>true);
-        $structure['columns']['id_'. $local_name] = 'int(11) unsigned';
-        $structure['columns']['id_'. $foreign_name] = 'int(11) unsigned';
+        $structure['columns']['id_'. $localName] = 'int(11) unsigned';
+        $structure['columns']['id_'. $foreignName] = 'int(11) unsigned';
         $structure['indexes']['primary'] = array('columns'=>array('id'), 'type'=>'primary');
-        $structure['indexes']['unique_id_'.$local_name.'_id_'.$foreign_name] = array(
+        $structure['indexes']['unique_id_'.$localName.'_id_'.$foreignName] = array(
             'columns'   => array(
-                'id_'.$local_name,
-                'id_'.$foreign_name
+                'id_'.$localName,
+                'id_'.$foreignName
             ),
             'type'      => 'unique'
         );
-        $fk_info = array(
-            'local_table'   => $info['many_table'],
-            'foreign_table' => $info['local_table'],
-            'local_field'   => 'id_'.$local_name,
-            'foreign_field' => $info['local_key']
+        $foreignKeysInfo = array(
+            'local_table'   => $info['manyTable'],
+            'foreign_table' => $info['localTable'],
+            'local_field'   => 'id_'.$localName,
+            'foreign_field' => $info['localKey']
         );
-        $structure['constraints'][$this->generateForeignKeyName($fk_info)] = $fk_info;
-        $fk_info = array(
-            'local_table'   => $info['many_table'],
-            'foreign_table' => $info['foreign_table'],
-            'local_field'   => 'id_'.$foreign_name,
-            'foreign_field' => $info['foreign_key']
+        $structure['constraints'][$this->generateForeignKeyName($foreignKeysInfo)] = $foreignKeysInfo;
+        $foreignKeysInfo = array(
+            'local_table'   => $info['manyTable'],
+            'foreign_table' => $info['foreignTable'],
+            'local_field'   => 'id_'.$foreignName,
+            'foreign_field' => $info['foreignKey']
         );
-        $structure['constraints'][$this->generateForeignKeyName($fk_info)] = $fk_info;
+        $structure['constraints'][$this->generateForeignKeyName($foreignKeysInfo)] = $foreignKeysInfo;
 
-        $diffs = $this->getDifferenceSQL($structure, $info['many_table']);
+        $diffs = $this->getDifferenceSQL($structure, $info['manyTable']);
         if ($diffs['result'] === true) {
             QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
-            if (!empty($diffs['sql']['ADD'])) QC::executeSQL($diffs['sql']['ADD']);
+            if (!empty($diffs['sql']['ADD'])) QC::executeArrayOfSQL($diffs['sql']['ADD']);
         }
         return $diffs['result'];
 

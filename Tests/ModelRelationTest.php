@@ -17,53 +17,71 @@ use Solve\Database\QC;
 class ModelRelationTest extends SolveDatabaseTestBasic {
 
     public function testSimpleRelation() {
+        $products  = \Product::loadList();
+        $products->loadRelative('brand');
+        $this->assertEquals('2', $products[2]->brand->id, 'Loaded Brand for array (many_to_one)');
+
+        $product = \Product::loadOne(3);
+        $this->assertEquals('Samsung', $product->brand->title, 'Loaded Brand for one object (many_to_one)');
+
+        $brands = \Brand::loadList();
+        $this->assertEquals(2, $brands[0]->products->count(), 'Loaded 2 Products for Brand 1 (one to many)');
+
+        $brand = \Brand::loadOne(2);
+        $this->assertEquals(1, count($brand->products), 'loaded collection with 1 Product (one to many)');
+
         $product = \Product::loadOne(1);
-        var_dump($product->category);die();
+        $this->assertEquals(2, $product->categories->count(), 'loaded two Categories for Product 1 (many_to_many)');
+
+        $category = \Category::loadOne(1);
+        $this->assertEquals('Macbook Air', $category->products->getFirst()->title, 'Product loaded for Category (many_to_many)');
     }
 
 
     protected static function putTestContent() {
+        QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
         QC::executeSQL('DROP TABLE IF EXISTS products');
+        QC::executeSQL('DROP TABLE IF EXISTS brands');
         QC::executeSQL('DROP TABLE IF EXISTS categories');
+        QC::executeSQL('DROP TABLE IF EXISTS products_categories');
         $storagePath = __DIR__ . '/storage/';
 
         $mo = ModelOperator::getInstance($storagePath);
         $mo->generateBasicStructure('Product');
+        $mo->generateBasicStructure('Brand');
         $mo->generateBasicStructure('Category');
 
         ModelStructure::getInstanceForModel('Product')
-            ->addColumn('id_category', array('type' => 'int(11) unsigned'))
-            ->addRelation('category')
-            ->addRelation('category_title', array(
-                'table' => 'categories',
-                'fields' => array('title'=>'category_title')
-            ))->saveStructure();
+                      ->addColumn('id_brand', array('type' => 'int(11) unsigned'))
+                      ->addRelation('brand')
+                      ->addRelation('categories')
+                      ->saveStructure();
+
+        ModelStructure::getInstanceForModel('Brand')
+                      ->addRelation('products')
+                      ->saveStructure();
 
         ModelStructure::getInstanceForModel('Category')
-            ->addRelation('product')
-            ->saveStructure();
+                      ->addRelation('products')
+                      ->saveStructure();
 
         $mo->generateAllModelClasses();
-        $mo->updateDBForAllModels();
         require_once $storagePath . 'bases/BaseProduct.php';
+        require_once $storagePath . 'bases/BaseBrand.php';
+        require_once $storagePath . 'bases/BaseCategory.php';
         require_once $storagePath . 'classes/Product.php';
-        QC::create('products')->insert(array('title' => 'Macbook Air', 'id_category'=>1))->execute();
-        QC::create('products')->insert(array('title' => 'Macbook Pro', 'id_category'=>1))->execute();
+        require_once $storagePath . 'classes/Brand.php';
+        require_once $storagePath . 'classes/Category.php';
+        $mo->updateDBForAllModels();
+        QC::create('products')->insert(array('title' => 'Macbook Air', 'id_brand' => 1))->execute();
+        QC::create('products')->insert(array('title' => 'Macbook Pro', 'id_brand' => 1))->execute();
+        QC::create('products')->insert(array('title' => 'iMac 27"', 'id_brand' => 2))->execute();
+        QC::create('brands')->insert(array('title' => 'Apple'))->execute();
+        QC::create('brands')->insert(array('title' => 'Samsung'))->execute();
         QC::create('categories')->insert(array('title' => 'Notebooks'))->execute();
-
-        $testProductFileContent = <<<TEXT
-<?php
-
-class ProductCustom extends BaseProduct {
-    private \$_internalManufacturer = 'solve';
-    public function getManufacturer() { return \$this->_internalManufacturer; }
-    public function setManufacturer(\$value) { \$this->_internalManufacturer = \$value; return \$this; }
-}
-TEXT;
-
-        file_put_contents($storagePath . 'classes/ProductCustom.php', $testProductFileContent);
-        require_once $storagePath . 'classes/ProductCustom.php';
-        $mo->setStructureForModel('ProductCustom', $mo->generateBasicStructure('Product', false), false);
+        QC::create('categories')->insert(array('title' => 'Computers'))->execute();
+        QC::create('products_categories')->insert(array('id_product'=>1,'id_category'=>1))->execute();
+        QC::create('products_categories')->insert(array('id_product'=>1,'id_category'=>2))->execute();
     }
 
     public static function tearDownAfterClass() {

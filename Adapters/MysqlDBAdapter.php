@@ -325,7 +325,11 @@ class MysqlDBAdapter extends BaseDBAdapter {
                     $condition = $condition[0];
                 }
                 foreach($condition as $key=>$value) {
-                    $sql .=  $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
+                    if (is_scalar($value)) {
+                        $sql .=  $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
+                    } else {
+                        $sql .=  $this->escapeSqlName($key) . ' IN (' . $this->escape($value) . ')';
+                    }
                 }
             }
         }

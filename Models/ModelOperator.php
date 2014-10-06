@@ -289,7 +289,8 @@ class ModelOperator {
         }
         if (!empty($this->_structures[$className]['relations'])) {
             foreach ($this->_structures[$className]['relations'] as $key => $props) {
-                $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'slModel') . ' ' . $key . "\n";
+                //@todo add detect for ModelCollection
+                $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'Model|ModelCollection') . ' ' . $key . "\n";
             }
         }
         if (!empty($propertiesText)) {
@@ -363,7 +364,9 @@ class ModelOperator {
     }
 
     public function updateDBForModel($modelName, $safeUpdate = true) {
-        DBOperator::getInstance()->updateDBFromStructure($this->getModelStructure($modelName), $safeUpdate);
+        $modelStructure = $this->getModelStructure($modelName);
+        DBOperator::getInstance()->updateDBFromStructure($modelStructure, $safeUpdate);
+        DBOperator::getInstance()->updateDBRelations($modelName, $modelStructure);
         return $this;
     }
 
@@ -492,18 +495,16 @@ class ModelOperator {
      * @throws \Exception if not found relation info
      */
     public static function calculateRelationVariables($model, $relationName) {
-        $relationInfo     = $model->_getStructure()->getRelationInfo($relationName);
+        $relationInfo = $model->_getStructure()->getRelationInfo($relationName);
         if (is_null($relationInfo)) throw new \Exception('Relation ' . $relationName . ' is not found');
         if (!is_array($relationInfo)) $relationInfo = array();
 
-        $localTable       = $model->_getStructure()->getTableName();
-        $info             = array();
+        $info               = array();
+        $info['localTable'] = $model->_getStructure()->getTableName();
 
         foreach ($relationInfo as $key => $value) {
             $info[lcfirst(Inflector::camelize($key))] = $value;
         }
-
-        if (!isset($info['localKey'])) $info['localKey'] = $model->_getStructure()->getPrimaryKey();
 
         if (!isset($info['model']) && !isset($info['table'])) {
             $info['model'] = ucfirst(Inflector::singularize($relationName));
@@ -511,10 +512,14 @@ class ModelOperator {
 
         if (isset($info['model'])) {
             $relatedStructure         = ModelStructure::getInstanceForModel($info['model']);
+            $info['foreignTable']     = $relatedStructure->getTableName();
             $info['relatedModelName'] = $info['model'];
-            $info['hydration'] = 'model';
+            $info['hydration']        = 'model';
             unset($info['model']);
         } else {
+            $info['relatedModelName'] = ucfirst(Inflector::singularize($info['table']));
+            $info['foreignTable']     = $info['table'];
+            unset($info['table']);
             $info['hydration'] = 'simple';
             if (empty($info['fields'])) {
                 $info['fields'] = '*';
@@ -523,6 +528,8 @@ class ModelOperator {
             unset($info['fields']);
             $relatedStructure = null;
         }
+
+        if (!isset($info['localKey'])) $info['localKey'] = $model->_getStructure()->getPrimaryKey();
         if (!isset($info['foreignKey'])) $info['foreignKey'] = empty($relatedStructure) ? 'id' : $relatedStructure->getPrimaryKey();
 
         $foreignTable = $relatedStructure ? $relatedStructure->getTableName() : (isset($info['table']) ? $info['table'] : $relationName);
@@ -530,35 +537,47 @@ class ModelOperator {
         $autoLocalField   = 'id_' . Inflector::underscore($info['relatedModelName']);
         $autoForeignField = 'id_' . Inflector::underscore($model->_getName());
         $hasLocalField    = false;
-        $hasForeignField   = false;
+        $hasForeignField  = false;
 
-        if ($relatedStructure->hasColumn($autoForeignField)) {
-            if (empty($info['type'])) $info['type'] = 'one_to_many';
-            if (empty($info['foreignField'])) $info['foreignField'] = $autoForeignField;
-            $hasForeignField = true;
+        if ($info['hydration'] == 'model') {
+            if ($relatedStructure->hasColumn($autoForeignField)) {
+                if (empty($info['type'])) $info['type'] = 'one_to_many';
+                if (empty($info['foreignField'])) $info['foreignField'] = $autoForeignField;
+                $hasForeignField = true;
+            }
+            if ($model->_getStructure()->hasColumn($autoLocalField)) {
+                if (empty($info['type'])) $info['type'] = 'many_to_one';
+                if (empty($info['localField'])) $info['localField'] = $autoLocalField;
+                $hasLocalField = true;
+            }
+            if (!$hasForeignField && !$hasLocalField) {
+                if (empty($info['type'])) $info['type'] = 'many_to_many';
+                if (empty($info['foreignField'])) $info['foreignField'] = $autoForeignField;
+                if (empty($info['localField'])) $info['localField'] = $autoLocalField;
+            }
         }
-        if ($model->_getStructure()->hasColumn($autoLocalField)) {
-            if (empty($info['type'])) $info['type'] = 'many_to_one';
-            if (empty($info['localField'])) $info['localField'] = $autoLocalField;
-            $hasLocalField = true;
-        }
-        if (!$hasForeignField && !$hasLocalField) {
-            if (empty($info['type'])) $info['type'] = 'many_to_many';
-        }
+        $info['relationToMany'] = (substr($info['type'], -4) == 'many') ? true : false;
+        $info['relationType']   = $info['type'];
+        unset($info['type']);
 
-        if (empty($info['manyTable'])) $info['manyTable'] = ($localTable > $foreignTable ? $localTable . '_' . $foreignTable : $foreignTable . '_' . $localTable);
+        if (empty($info['manyTable'])) $info['manyTable'] = ($info['localTable'] > $foreignTable ? $info['localTable'] . '_' . $foreignTable : $foreignTable . '_' . $info['localTable']);
 
         return $info;
     }
 
+    /**
+     * @param Model|ModelCollection $caller
+     * @param $fieldName
+     * @return array
+     */
     public static function getFieldArray($caller, $fieldName) {
-        $fields = array();
+        $res = array();
         if ($caller instanceof Model) {
-            $fields = $caller->$fieldName;
+            $res = array($caller->$fieldName);
         } else {
-            //@todo for #ModelCollection
+            $res = $caller->getFieldArray($fieldName);
         }
-        return $fields;
+        return $res;
     }
 
     /**

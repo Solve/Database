@@ -274,6 +274,12 @@ class QC {
         return self::$_staticAdapter->executeSQL($sql);
     }
 
+    public static function executeArrayOfSQL($array) {
+        foreach($array as $sql) {
+            self::executeSQL($sql);
+        }
+    }
+
     public function processRows($rows) {
         if (($indexBy   = $this->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy =  $indexBy[0];
         if (($foldBy    = $this->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy =  $foldBy[0];

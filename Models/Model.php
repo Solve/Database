@@ -8,9 +8,10 @@
  */
 
 namespace Solve\Database\Models;
-
+require_once __DIR__ . '/../Models/ModelCollection.php';
 use Solve\Database\QC;
 use Solve\Utils\Inflector;
+use Solve\Database\Models\ModelCollection;
 
 /**
  * Class Model
@@ -23,10 +24,11 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @var ModelStructure
      */
-    private $_structure      = null;
+    private $_structure;
 
     private $_tableName;
     private $_primaryKey;
+    private $_collectionObjectReference;
     private $_data           = array();
     private $_originalData   = array();
     private $_changedData    = array();
@@ -38,16 +40,20 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
      */
     private $_name = null;
 
-    public function __construct($data = array()) {
-        $this->_name      = get_called_class();
-        $this->_structure = ModelStructure::getInstanceForModel($this->_name);
-        $this->_tableName = $this->_structure->getTableName();
+    public function __construct() {
+        $this->_name       = get_called_class();
+        $this->_structure  = ModelStructure::getInstanceForModel($this->_name);
+        $this->_tableName  = $this->_structure->getTableName();
         $this->_primaryKey = $this->_structure->getPrimaryKey();
         $this->configure();
     }
 
     public static function getModel($modelName) {
-        return new $modelName();
+        if (class_exists($modelName)) {
+            return new $modelName();
+        } else {
+            return new Model();
+        }
     }
 
     /**
@@ -60,6 +66,21 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
          */
         $object = self::getModel(get_called_class());
         return $object->_loadOne($criteria);
+    }
+
+    /**
+     * @param QC|mixed $criteria
+     * @return mixed
+     */
+    public static function loadList($criteria = null) {
+        /**
+         * @var Model $object
+         */
+        $object = self::getModel(get_called_class());
+        $customCollectionClassName = Inflector::pluralize($object->_name) . 'Collection';
+        $collectionClass           = class_exists($customCollectionClassName) ? $customCollectionClassName : '\\Solve\\Database\\Models\\ModelCollection';
+        return call_user_func(array($collectionClass, 'loadList'), $criteria, $object);
+
     }
 
     /**
@@ -81,14 +102,18 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this;
     }
 
-    protected function _processCriteria($criteria) {
+    public function _processCriteria($criteria) {
         if (is_scalar($criteria)) {
             $criteria = array($this->_primaryKey => $criteria);
         }
         if (is_array($criteria)) {
             $newCriteria = array();
-            foreach ($criteria as $key => $value) {
-                $newCriteria[$this->_tableName . '.' . $key] = $value;
+            if (array_key_exists(0, $criteria)) {
+                $newCriteria[$this->_tableName . '.' . $this->_primaryKey] = $criteria;
+            } else {
+                foreach ($criteria as $key => $value) {
+                    $newCriteria[$this->_tableName . '.' . $key] = $value;
+                }
             }
             $criteria = $newCriteria;
             unset($newCriteria);
@@ -105,16 +130,22 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this;
     }
 
+    public function _setRawFieldValue($field, $value) {
+        $this->_data[$field] = $this->_originalData[$field] = $value;
+        return $this;
+    }
+
     /**
      * Merge current data with provided
      * @param $data
      */
     public function mergeWithData($data) {
-        foreach($data as $key=>$value) {
+        foreach ($data as $key => $value) {
             if ($key != $this->_primaryKey && (
-                (!array_key_exists($key, $this->_data) && $this->_structure->hasColumn($key))
+                    (!array_key_exists($key, $this->_data) && $this->_structure->hasColumn($key))
                     || (array_key_exists($key, $this->_data) && $value != $this->_data[$key])
-                )) {
+                )
+            ) {
                 $this->offsetSet($key, $value);
             }
         }
@@ -124,7 +155,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if (!$this->isChanged() && !$forceSave) return true;
 
         $dataToSave = array();
-        foreach($this->_structure->getColumns() as $column=>$info) {
+        foreach ($this->_structure->getColumns() as $column => $info) {
             if (array_key_exists($column, $this->_changedData)) {
                 $dataToSave[$column] = $this->_changedData[$column];
             } elseif ($forceSave) {
@@ -151,19 +182,23 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             $this->setOriginalData($data);
         }
 
-        $this->_isNew = false;
+        $this->_isNew       = false;
         $this->_changedData = array();
         return true;
     }
 
     public function getArray() {
-        return $this->_data;
+        $res = array();
+        foreach($this->_data as $key=>$value) {
+            $res[$key] = is_object($value) && ($value instanceof Model || $value instanceof ModelCollection) ? $value->getArray() : $value;
+        }
+        return $res;
     }
+
     /**
      * Could be used for configuring model after constructor is done
      */
-    protected function configure() {
-    }
+    protected function configure() {}
 
 
     public function isNew() {
@@ -173,6 +208,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     public function isChanged() {
         return count($this->_changedData) > 0;
     }
+
     /**
      * @param null $what
      * @return mixed|ModelStructure
@@ -183,6 +219,18 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } else {
             return $this->_structure;
         }
+    }
+
+    public function setCollectionReference($collectionObject) {
+        $this->_collectionObjectReference = $collectionObject;
+    }
+
+    public function hasCollectionReference() {
+        return (!is_null($this->_collectionObjectReference));
+    }
+
+    public function getCollectionReference(){
+        return $this->_collectionObjectReference;
     }
 
     /**
@@ -217,7 +265,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if (method_exists($this, $method) && !array_key_exists($getterName, $this->_invokedGetters)) {
             $this->_data[$key] = $this->_invokedGetters[$getterName] = $this->$method();
             return $this->_data[$key];
-        // check for relation
+            // check for relation
         } elseif ($this->_structure->hasRelation($key) && !$this->_isNew) {
             $mr = ModelRelation::getInstanceForModel($this);
             $mr->loadRelative($this, $key);
@@ -239,6 +287,21 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     }
 
+    /**
+     * @param string $relations
+     */
+    public function loadRelative($relations) {
+        $relations = explode(',', $relations);
+        $mr = ModelRelation::getInstanceForModel($this);
+        foreach($relations as $name) {
+            $mr->loadRelative($this, $name);
+        }
+    }
+
+    public function getID() {
+        return $this->_data[$this->_primaryKey];
+    }
+
     public function getIterator() {
         return new \ArrayIterator($this->_data);
     }
@@ -256,10 +319,10 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function offsetSet($offset, $value) {
-        if (method_exists($this, 'set'.Inflector::camelize($offset))) {
-            $this->{'set'.Inflector::camelize($offset)}($value);
+        if (method_exists($this, 'set' . Inflector::camelize($offset))) {
+            $this->{'set' . Inflector::camelize($offset)}($value);
         }
-        $this->_data[$offset] = $value;
+        $this->_data[$offset]        = $value;
         $this->_changedData[$offset] = $value;
         if (array_key_exists($offset, $this->_invokedGetters)) {
             $this->_invokedGetters[$offset] = $value;
