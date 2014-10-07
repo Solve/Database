@@ -405,7 +405,6 @@ class DBOperator {
             'constraints'   => array(),
         );
 
-
         $localName = Inflector::singularize($info['localTable']);
         $foreignName = Inflector::singularize($info['foreignTable']);
 

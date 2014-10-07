@@ -288,6 +288,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             $sql .= $this->processParametricCondition($data);
         } else {
             foreach($data as $field => $value) {
+                if (is_array($value)) throw new MysqlDBAdapterException('You tried to set array as a value in data part');
                 $sql .=  $glue . ' ' . $this->processParametricCondition(array($field => $value));
             }
             $sql = substr($sql, strlen($glue) + 1);

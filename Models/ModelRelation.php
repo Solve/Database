@@ -9,6 +9,7 @@
 
 namespace Solve\Database\Models;
 
+use SebastianBergmann\Exporter\Exception;
 use Solve\Database\QC;
 
 /**
@@ -49,12 +50,87 @@ class ModelRelation {
     }
 
     /**
+     * @param Model|ModelCollection $caller
+     * @param string $relationName
+     * @param mixed $foreignIDs
+     * @throws \Exception
+     */
+    public function setRelatedIDs($caller, $relationName, $foreignIDs) {
+        $info = ModelOperator::calculateRelationVariables($caller, $relationName);
+        if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
+
+        $localIDs = ModelOperator::getIDs($caller);
+
+        if (substr($info['relationType'], -6) == 'to_one') {
+            if (count($foreignIDs) > 1) throw new \Exception('You can\'t set array of destination ids ManyToOne');
+
+            $idRelationObject = is_array($foreignIDs) ? $foreignIDs[0] : $foreignIDs;
+            QC::create($info['localTable'])
+                ->update(array($info['localField']=>$idRelationObject))
+                ->where(array($info['localKey']=>$localIDs))
+                ->execute();
+            $caller->_setRawFieldValue($info['localField'], $idRelationObject);
+        } elseif ($info['relationType'] == 'one_to_many') {
+            if (count($localIDs) > 1) throw new \Exception('You can\'t set array of source ids OneToMany');
+            QC::create($info['foreignTable'])
+                ->update(array($info['foreignField']=>$localIDs[0]))
+                ->where(array($info['foreignKey']=>$foreignIDs))
+                ->execute();
+        } else {
+            QC::create($info['manyTable'])->delete(array($info['foreignField']=>$localIDs))->execute();
+            $data = array();
+            foreach($localIDs as $fid) {
+                foreach($foreignIDs as $lid) {
+                    $data[] = array($info['localField'] => $lid, $info['foreignField'] => $fid);
+                }
+            }
+            QC::create($info['manyTable'])
+              ->insert($data)
+              ->execute();
+        }
+        $caller->loadRelated($relationName);
+    }
+
+    /**
+     * @param Model|ModelCollection $caller
+     * @param string $relationName
+     * @param mixed $foreignIDs
+     * @throws \Exception
+     */
+    public function clearRelatedIDs($caller, $relationName, $foreignIDs = array()) {
+        $info = ModelOperator::calculateRelationVariables($caller, $relationName);
+        if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
+
+        $localIDs = ModelOperator::getIDs($caller);
+        $qc = QC::create();
+        if (substr($info['relationType'], -6) == 'to_one') {
+            $qc->from($info['localTable'])
+              ->update(array($info['localField']=>null))
+              ->where(array($info['localKey']=>$localIDs));
+
+            $caller->_setRawFieldValue($info['localField'], null);
+
+        } elseif ($info['relationType'] == 'one_to_many') {
+            $qc->from($info['foreignTable'])
+              ->update(array($info['foreignField']=>null))
+              ->where(array($info['foreignField']=>$localIDs));
+
+            if (!empty($foreignIDs)) $qc->where(array($info['foreignKey']=>$foreignIDs));
+        } else {
+            $qc->from($info['manyTable'])->delete(array($info['foreignField']=>$localIDs));
+            if (!empty($foreignIDs)) $qc->where(array($info['localField']=>$foreignIDs));
+        }
+        $qc->execute();
+        $caller->loadRelated($relationName);
+    }
+
+    /**
      * @param $caller
      * @param $relationName
      * @return $this
      * @throws \Exception
      */
-    public function loadRelative($caller, $relationName) {
+    public function _loadRelated($caller, $relationName) {
         /**
          * @var $localKey
          * @var $localField
@@ -78,7 +154,6 @@ class ModelRelation {
         $originalCaller = null;
 
         if (($caller instanceof Model) && $caller->hasCollectionReference()) {
-            $originalCaller = $caller;
             $caller = $caller->getCollectionReference();
         }
         if ($relationType == 'many_to_one') {
@@ -86,14 +161,16 @@ class ModelRelation {
         } elseif ($relationToMany) {
             $localIds = ModelOperator::getIDs($caller);
 
-            $tableToSelect = $manyTable;
-            if ($relationType == 'one_to_many') {
-                $tableToSelect = $foreignTable;
+            $tableToSelect = $foreignTable;
+            $fieldToSelect = $foreignKey;
+            if ($relationType == 'many_to_many') {
+                $tableToSelect = $manyTable;
+                $fieldToSelect = $localField;
             }
             $idsMap = QC::create($tableToSelect)->where(array($tableToSelect . '.' . $foreignField => $localIds))
-                        ->select($foreignKey . ', ' . $foreignField)
+                        ->select($fieldToSelect . ', ' . $foreignField)
                         ->foldBy($foreignField)
-                        ->use($foreignKey)
+                        ->use($fieldToSelect)
                         ->execute();
             foreach ($idsMap as $value) {
                 $foreignIds = array_merge($foreignIds, $value);
@@ -129,5 +206,7 @@ class ModelRelation {
         }
         return $this;
     }
+
+
 
 } 

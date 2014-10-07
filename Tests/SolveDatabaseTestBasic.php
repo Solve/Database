@@ -11,6 +11,7 @@ namespace Solve\Database\Tests;
 
 use Solve\Database\DatabaseService;
 use Solve\Database\Models\DBOperator;
+use Solve\Database\QC;
 use Solve\Utils\FSService;
 
 require_once 'test_autoloader.php';
@@ -28,6 +29,7 @@ class SolveDatabaseTestBasic extends \PHPUnit_Framework_TestCase {
         self::$_storagePath = __DIR__ . '/storage/';
         DBOperator::getInstance()->createDB(self::$_DBName)->useDB(self::$_DBName);
         FSService::unlinkRecursive(self::$_storagePath);
+        QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
         call_user_func(array(get_called_class(), 'putTestContent'));
     }
 

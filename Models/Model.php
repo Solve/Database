@@ -209,6 +209,12 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return count($this->_changedData) > 0;
     }
 
+    public function delete() {
+        if ($this->isNew()) return false;
+
+        return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
+    }
+
     /**
      * @param null $what
      * @return mixed|ModelStructure
@@ -268,7 +274,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             // check for relation
         } elseif ($this->_structure->hasRelation($key) && !$this->_isNew) {
             $mr = ModelRelation::getInstanceForModel($this);
-            $mr->loadRelative($this, $key);
+            $mr->_loadRelated($this, $key);
         }
         if (array_key_exists($key, $this->_data)) {
             return $this->_data[$key];
@@ -278,7 +284,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function __call($method, $params) {
-        if (substr($method, 0, 3) == 'get') {
+        if (substr($method, -10) == 'RelatedIDs') {
+            ModelRelation::getInstanceForModel($this)->$method($this, $params[0], $params[1]);
+        } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(strtolower(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {
             $this->offsetSet(strtolower(substr($method, 3)), $params[0]);
@@ -290,11 +298,11 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @param string $relations
      */
-    public function loadRelative($relations) {
+    public function loadRelated($relations) {
         $relations = explode(',', $relations);
         $mr = ModelRelation::getInstanceForModel($this);
         foreach($relations as $name) {
-            $mr->loadRelative($this, $name);
+            $mr->_loadRelated($this, $name);
         }
     }
 

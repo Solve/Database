@@ -43,16 +43,15 @@ class ModelOperator {
     /**
      * @var array all loaded structures
      */
-    private $_structures = array();
-
-    private $_abilities = array();
-
-    private $_isSeparateStorage = true;
+    private        $_structures        = array();
+    private        $_abilities         = array();
+    private        $_isSeparateStorage = true;
+    private static $_variablesHashes   = array();
 
     /**
      * @var array used for check syntax in model structure files
      */
-    static private $_allowedStructureKeys = array(
+    private static $_allowedStructureKeys = array(
         'table',
         'columns',
         'indexes',
@@ -224,6 +223,7 @@ class ModelOperator {
     public function saveModelStructure($modelName) {
         $file_name = strtolower($modelName);
         $modelName = ucfirst($modelName);
+        FSService::makeWritable($this->_structuresPath);
         if (is_file($this->_structuresPath . $file_name . '.yml')) {
             unlink($this->_structuresPath . $file_name . '.yml');
         }
@@ -288,6 +288,9 @@ class ModelOperator {
             $methodsText .= ' * @method ' . $className . ' set' . Inflector::camelize($key) . '($value)' . "\n";
         }
         if (!empty($this->_structures[$className]['relations'])) {
+            $methodsText .= ' * @method mixed setRelatedIDs($relationName, $ids)' . "\n";
+            $methodsText .= ' * @method mixed addRelatedIDs($relationName, $ids)' . "\n";
+            $methodsText .= ' * @method mixed clearRelatedIDs($relationName, $ids = null)' . "\n";
             foreach ($this->_structures[$className]['relations'] as $key => $props) {
                 //@todo add detect for ModelCollection
                 $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'Model|ModelCollection') . ' ' . $key . "\n";
@@ -495,6 +498,10 @@ class ModelOperator {
      * @throws \Exception if not found relation info
      */
     public static function calculateRelationVariables($model, $relationName) {
+        if (!empty($_variablesHashes[$model->_getName() . $relationName])) {
+            return $_variablesHashes[$model->_getName() . $relationName];
+        }
+
         $relationInfo = $model->_getStructure()->getRelationInfo($relationName);
         if (is_null($relationInfo)) throw new \Exception('Relation ' . $relationName . ' is not found');
         if (!is_array($relationInfo)) $relationInfo = array();
@@ -561,6 +568,7 @@ class ModelOperator {
         unset($info['type']);
 
         if (empty($info['manyTable'])) $info['manyTable'] = ($info['localTable'] > $foreignTable ? $info['localTable'] . '_' . $foreignTable : $foreignTable . '_' . $info['localTable']);
+        $_variablesHashes[$model->_getName() . $relationName] = $info;
 
         return $info;
     }
@@ -585,7 +593,7 @@ class ModelOperator {
      * @return array|null
      */
     public static function getIDs($caller) {
-        return self::getFieldArray($caller, $caller->_getStructure()->getPrimaryKey());
+        return $caller instanceof Model ? array($caller->getID()) : $caller->getIDs();
     }
 
 

@@ -8,33 +8,16 @@
  */
 
 namespace Solve\Database\Tests;
-use Solve\Database\DatabaseService;
+require_once 'SolveDatabaseTestBasic.php';
+
 use Solve\Database\Models\DBOperator;
 use Solve\Database\Models\ModelOperator;
 use Solve\Database\QC;
-use Solve\Utils\FSService;
 
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../Models/ModelOperator.php';
-
-class ModelOperatorTest extends \PHPUnit_Framework_TestCase {
-
-    private $_storagePath;
-
-    public function setUp() {
-        DatabaseService::configProfile(array(
-            'user'  => 'root',
-            'pass'  => 'root'
-        ));
-        $DBName = 'solve_test_database';
-        DBOperator::getInstance()->createDB($DBName)->useDB($DBName);
-
-        $this->_storagePath = __DIR__ . '/storage/';
-        FSService::unlinkRecursive($this->_storagePath);
-    }
+class ModelOperatorTest extends SolveDatabaseTestBasic {
 
     public function testBasic() {
-        $mo = ModelOperator::getInstance($this->_storagePath);
+        $mo = ModelOperator::getInstance(self::$_storagePath);
         $this->assertEmpty($mo->getModelStructure('User'), 'Empty structure returns array()');
 
         $mo->generateBasicStructure('User');
@@ -51,19 +34,19 @@ class ModelOperatorTest extends \PHPUnit_Framework_TestCase {
                 ),
             ),
                 'indexes'   => array(
-                'primary'   => array( 'columns' => 'id' )
+                'primary'   => array('columns' => array('id') )
             )
         ), $data, 'Basic structure generator is ok');
 
         $mo->saveModelStructure('User');
-        $this->assertFileExists($this->_storagePath . 'structure/User.yml', 'Save model structure is ok');
+        $this->assertFileExists(self::$_storagePath . 'structure/User.yml', 'Save model structure is ok');
 
         $mo->generateModelClass('User');
         require_once __DIR__ . '/storage/bases/BaseUser.php';
         require_once __DIR__ . '/storage/classes/User.php';
 
-        $this->assertFileExists($this->_storagePath . 'bases/BaseUser.php', 'BaseModel generated');
-        $this->assertFileExists($this->_storagePath . 'classes/User.php', 'Model generated');
+        $this->assertFileExists(self::$_storagePath . 'bases/BaseUser.php', 'BaseModel generated');
+        $this->assertFileExists(self::$_storagePath . 'classes/User.php', 'Model generated');
 
         $this->assertTrue(class_exists('\User'), 'Generated model class is available');
 
@@ -73,9 +56,6 @@ class ModelOperatorTest extends \PHPUnit_Framework_TestCase {
         $this->assertNotEmpty($data, 'Table generation is ok');
     }
 
-
-    public function tearDown() {
-        FSService::unlinkRecursive($this->_storagePath);
-    }
+//    public static function tearDownAfterClass() {}
 }
  

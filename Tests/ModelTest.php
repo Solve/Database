@@ -18,8 +18,7 @@ use Solve\Database\QC;
 
 class ModelTest extends SolveDatabaseTestBasic {
 
-    public function testForTest() {
-    }
+    public function testForTest() {}
 
     public function testCreatingLoading() {
         $m = new Model();
@@ -33,7 +32,7 @@ class ModelTest extends SolveDatabaseTestBasic {
         $this->assertInstanceOf('Product', $object, 'loadOne returns model Instance');
 
         $data = $object->getArray();
-        $this->assertEquals(array('id' => 1, 'title' => 'Macbook air', 'id_category' => null), $data, 'User get array returns actual array');
+        $this->assertEquals(array('id' => 1, 'title' => 'Macbook air', 'id_brand' => null), $data, 'User get array returns actual array');
 
         $this->assertEquals(1, $object->id, 'Getter of model object is works');
 
@@ -55,7 +54,6 @@ class ModelTest extends SolveDatabaseTestBasic {
 
         $product = \Product::loadOne(QC::create()->rawSelect('select * from products where id = 1'));
         $this->assertEquals('1', $product->id, 'loaded by QC raw select');
-
     }
 
     public function testAccessors() {
@@ -75,14 +73,20 @@ class ModelTest extends SolveDatabaseTestBasic {
 
         $object->mergeWithData(array(
             'title'       => 'ipad',
-            'id_category' => 1,
+            'id_brand' => 1,
         ));
         $object->save();
         $this->assertEquals(array(
             'id'          => 2,
             'title'       => 'ipad',
-            'id_category' => 1
+            'id_brand' => 1
         ), $object->getArray(), 'Newly created object merged and saved');
+    }
+
+    public function testDelete() {
+        $product = \Product::loadOne(1);
+        $product->delete();
+        $this->assertEmpty(QC::create('products')->where('id = 1')->execute(), 'Product deleted');
     }
 
     protected static function putTestContent() {
@@ -92,7 +96,7 @@ class ModelTest extends SolveDatabaseTestBasic {
         $mo = ModelOperator::getInstance($storagePath);
         $mo->generateBasicStructure('Product');
         $ms = new ModelStructure('Product');
-        $ms->addColumn('id_category', array('type' => 'int(11) unsigned'));
+        $ms->addColumn('id_brand', array('type' => 'int(11) unsigned'));
         $ms->saveStructure();
 
         $mo->generateAllModelClasses();
@@ -115,6 +119,8 @@ TEXT;
         require_once $storagePath . 'classes/ProductCustom.php';
         $mo->setStructureForModel('ProductCustom', $mo->generateBasicStructure('Product', false), false);
     }
+
+//    public static function tearDownAfterClass() {}
 
 }
  

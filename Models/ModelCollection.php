@@ -18,6 +18,8 @@ use Solve\Utils\Inflector;
  *
  * Class ModelCollection is used to operate with collection of models
  *
+ * @method _setRawFieldData($field, $value)
+ *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
@@ -36,6 +38,9 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_modelClass;
     private $_tableName;
     private $_primaryKey;
+    private $_modelsMethods = array(
+        '_setRawFieldValue'
+    );
 
     public function __construct() {
         $this->configure();
@@ -106,11 +111,11 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @param string $relations
      */
-    public function loadRelative($relations) {
+    public function loadRelated($relations) {
         $relations = explode(',', $relations);
         $mr        = ModelRelation::getInstanceForModel($this->_model);
         foreach ($relations as $name) {
-            $mr->loadRelative($this, $name);
+            $mr->_loadRelated($this, $name);
         }
     }
 
@@ -189,6 +194,14 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this->_data[$keys[count($keys) - 1]];
     }
 
+    public function getIDs() {
+        return array_keys($this->_pk_map);
+    }
+
+    public function delete() {
+        QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getIDs()))->execute();
+    }
+
     protected function configure() {
     }
 
@@ -198,6 +211,20 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     public function _getStructure() {
         return $this->_structure;
+    }
+
+    public function __call($method, $params) {
+        if (substr($method, -10) == 'RelatedIDs') {
+            ModelRelation::getInstanceForModel($this)->$method($this, $params[0], $params[1]);
+        } elseif (in_array($method, $this->_modelsMethods)) {
+            foreach($this->_data as $object) {
+                /**
+                 * @var Model $object
+                 */
+                call_user_func_array(array($object, $method), $params);
+            }
+        }
+        return $this;
     }
 
     public function getIterator() {
