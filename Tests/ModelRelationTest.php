@@ -59,6 +59,9 @@ class ModelRelationTest extends SolveDatabaseTestBasic {
         $brand = \Brand::loadOne(2);
         $brand->clearRelatedProducts();
         $this->assertEmpty(QC::create('products')->where(array('id_brand'=>2))->execute(), 'Clear related IDs with setter');
+
+        $product->setRelatedBrand($brand);
+        $this->assertEquals(2, $product->brand->id, 'Related brand via object');
     }
 
     protected static function putTestContent() {

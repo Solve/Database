@@ -101,7 +101,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
              */
             $object = new $this->_modelClass();
             $object->setOriginalData($item);
-            $object->setCollectionReference($this);
+            $object->_setCollectionReference($this);
             $this->_data[]                              = $object;
             $this->_pk_map[$object[$this->_primaryKey]] = $index++;
         }

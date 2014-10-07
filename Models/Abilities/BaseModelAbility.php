@@ -8,6 +8,7 @@
  */
 
 namespace Solve\Database\Models\Abilities;
+
 use Solve\Database\Models\Model;
 use Solve\Database\Models\ModelStructure;
 use Solve\Utils\Inflector;
@@ -16,93 +17,91 @@ use Solve\Utils\Inflector;
  * Class BaseModelAbility
  * @package Solve\Database\Models\Abilities
  *
- * Class BaseModelAbility is used to ...
+ * Class BaseModelAbility is a basic ability class
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
 abstract class BaseModelAbility {
 
-    /**
-     * @var array of params specified in slModel Structure
-     */
-    protected $_params      = array();
-
-    /**
-     * @var null|string primary key of current model
-     */
-    protected $_pk              = null;
-
-    /**
-     * @var string
-     */
-    protected $_table           = null;
-
-    /**
-     * @var array actions that available in suggestion
-     */
-    public $_mixed_methods   = array();
-
-
+    protected $_params           = array();
+    protected $_primaryKey;
+    protected $_tableName;
+    protected $_publishedMethods = array();
     /**
      * @var Model
      */
-    protected $_modelName   = null;
+    protected      $_model;
+    protected      $_modelStructure;
+    private static $_modelInstances = array();
 
     /**
      * @param Model $model
      */
-    public function __construct($model) {
+    private function __construct($model) {
         if (!isset($model)) return true;
-        $ability_name   = Inflector::underscore(substr(get_class($this), 0, -7));
-        $this->_modelName   = $model;
-        $this->_params  = $model->getStructure('abilities/'.$ability_name);
-        $this->_pk      = $this->_modelName->getStructure()->getPrimaryField();
-        $this->_table   = $this->_modelName->getStructure('table');
+        $this->_model          = $model;
+        $this->_modelStructure = $model->_getStructure();
+        $this->_params         = $model->_getStructure('abilities/' . Inflector::underscore(substr(get_class($this), 0, -7)));
+        $this->_primaryKey     = $this->_modelStructure->getPrimaryKey();
+        $this->_tableName      = $this->_model->_getStructure('table');
+    }
+
+
+    /**
+     * @param Model $modelInstance
+     */
+    public static function getInstanceForModel($modelInstance) {
+        $abilityClass = get_called_class();
+        if (empty(self::$_modelInstances[$modelInstance->_getName()])) {
+            self::$_modelInstances[$modelInstance->_getName()] = new $abilityClass($modelInstance);
+        }
+        return self::$_modelInstances[$modelInstance->_getName()];
     }
 
     /**
      * execute when ability attaches to the model first time
      */
-    public function setUp() {}
+    public function setup() {
+    }
 
     /**
      * Execute when we detach ability from model
      * @param $objects
      */
-    public function unSetUp(&$objects) {}
-
-    /**
-     * Execute when we delete objects
-     * @param $objects
-     */
-    public function unlink(&$objects) {}
-
+    public function remove(&$objects) {
+    }
 
     /**
      * executes every time when model creating
      */
-    public function bootstrap() {}
+    public function initialize() {
+    }
 
     /**
      * Use for dynamic publishing actions
-     * @param string $action_name
+     * @param string $methodName
      */
-    protected function publishAction($action_name) {
-        $this->_mixed_methods[$action_name] = array();
+    protected function publishMethod($methodName) {
+        $this->_publishedMethods[$methodName] = array();
     }
 
     /**
      * published actions
      * @return array
      */
-    public function getPublishedActions() {
-        return $this->_mixed_methods;
+    public function getPublishedMethods() {
+        return $this->_publishedMethods;
     }
 
-    public function preSave(&$changed, &$all) {}
-    public function postSave(&$changed, &$all) {}
+    public function postLoad($caller) {
+    }
 
+    public function preSave($caller) {
+    }
+
+    public function postSave($caller) {
+    }
 
     static public function getInitialStructure(ModelStructure $structure) {
         return 'true';
@@ -110,12 +109,12 @@ abstract class BaseModelAbility {
 
     public function requireParametersCount($count, &$params) {
         if (is_array($params) && count($params) < $count) {
-            throw new \Exception('Method require at less '.$count.' parameters');
+            throw new \Exception('Method require at less ' . $count . ' parameters');
         }
     }
 
-    public function requireModeSingle(&$objects) {
-        if (!is_array($objects) || (count($objects) > 1)) {
+    public function requireModeSingle($caller) {
+        if (!$caller instanceof Model) {
             throw new \Exception('Method require single mode but you call it for collection');
         }
     }

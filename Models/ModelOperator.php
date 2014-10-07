@@ -9,6 +9,7 @@
 
 namespace Solve\Database\Models;
 
+use Solve\Database\Models\Abilities\BaseModelAbility;
 use Solve\Database\QC;
 use Solve\Utils\FSService;
 use Solve\Utils\Inflector;
@@ -44,7 +45,6 @@ class ModelOperator {
      * @var array all loaded structures
      */
     private        $_structures        = array();
-    private        $_abilities         = array();
     private        $_isSeparateStorage = true;
     private static $_variablesHashes   = array();
 
@@ -299,24 +299,23 @@ class ModelOperator {
         if (!empty($propertiesText)) {
             $propertiesText = substr($propertiesText, 0, -1);
         }
-//        $methods = array();
-//        $abilities = array();
-//            if (!empty($this->_structure[$class_name]['abilities'])) {
-//                foreach($this->_structure[$class_name]['abilities'] as $key=>$props) {
-//                    $ability = Inflector::camelize($key) . 'Ability';
-//                    if (!isset($abilities[$ability])) {
-//                        $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability;
-//                        $abilities[$ability] = new $abilityClass(null);
-//                        $ability_methods = $abilities[$ability]->getPublishedActions();
-//                        foreach(array_keys($ability_methods) as $method) {
-//                            if (!in_array($method, $methods)) $methods[] = $method;
-//                        }
-//                    }
-//                }
-//                foreach($methods as $method) {
-//                    $methodsText .= ' * @method ' . $method . '() ' . $method. "()\n";
-//                }
-//            }
+        if (!empty($this->_structures[$className]['abilities'])) {
+            foreach ($this->_structures[$className]['abilities'] as $abilityName => $props) {
+                $abilityClass = 'Solve\Database\Models\Abilities\\' . $abilityName . 'Ability';
+                $rf           = new \ReflectionClass($abilityClass);
+                if ($comment = $rf->getDocComment()) {
+                    preg_match_all('#\* @publish (.*)#i', $comment, $methods);
+                    if (!empty($methods[1])) {
+                        foreach ($methods[1] as $methodDescription) {
+                            $methodsText .= ' * @method ' . $methodDescription . "\n";
+                        }
+                    }
+                }
+            }
+        }
+        if (!empty($methodsText)) {
+            $methodsText = substr($methodsText, 0, -1);
+        }
 
         //@todo event dispatcher for project name needed
         $replace           = array(
@@ -342,23 +341,6 @@ class ModelOperator {
             FSService::makeWritable($this->_modelsPath);
             file_put_contents($this->_modelsPath . $className . '.php', $modelClassTemplate);
         }
-
-//            if ($rebuild_abilities && !empty($this->_structure[$class_name]['abilities'])) {
-//                /**
-//                 *  @var Model $modelInstance
-//                 */
-//                $modelInstance = new $class_name;
-//                foreach($this->_structure[$class_name]['abilities'] as $ability_name=>$params) {
-//                    $ability_name = ucfirst($ability_name);
-//                    $ability_class = $abilityClass = 'Solve\Database\Models\Abilities\\' . $ability_name.'Ability';
-//                    if (class_exists($ability_class)) {
-//                        $this->_abilities[$ability_name] = new $ability_class($modelInstance);
-//                        $this->_abilities[$ability_name]->setUp();
-//                    }
-//                }
-//                $this->_structure[$class_name] = $modelInstance->getStructure()->get();
-//                if ($updateStructure) $this->saveYamlStructure($class_name, $this->_structure[$class_name]);
-//            }
     }
 
     public function generateAllModelClasses() {
@@ -597,5 +579,18 @@ class ModelOperator {
         return $caller instanceof Model ? array($caller->getID()) : $caller->getIDs();
     }
 
+    /**
+     * @param $modelInstance
+     * @param $abilityName
+     * @return BaseModelAbility
+     * @throws \Exception
+     */
+    public static function getAbilityInstanceForModel($modelInstance, $abilityName) {
+        $abilityClass = '\\Solve\\Database\\Models\\Abilities\\' . Inflector::camelize($abilityName) . 'Ability';
+        if (!class_exists($abilityClass)) throw new \Exception('Ability ' . $abilityName . ' not found');
+
+        $abilityInstance = call_user_func(array($abilityClass, 'getInstanceForModel'), $modelInstance);
+        return $abilityInstance;
+    }
 
 } 

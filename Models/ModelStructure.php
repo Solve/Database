@@ -8,6 +8,7 @@
  */
 
 namespace Solve\Database\Models;
+
 use Solve\Storage\ArrayStorage;
 
 /**
@@ -21,12 +22,13 @@ use Solve\Storage\ArrayStorage;
  */
 class ModelStructure {
 
-    private $_modelName     = null;
+    private $_modelName = null;
 
     /**
      * @var ArrayStorage
      */
-    private $_data          = null;
+    private $_data           = null;
+    private $_addedAbilities = array();
 
     private static $_modelInstances = array();
 
@@ -75,19 +77,37 @@ class ModelStructure {
 
     public function addColumn($name, $info) {
         if (!$this->hasColumn($name)) {
-            $this->_data->setDeepValue('columns/'.$name, $info);
+            $this->_data->setDeepValue('columns/' . $name, $info);
         }
         return $this;
     }
 
     public function addRelation($name, $info = array()) {
-        $this->_data->setDeepValue('relations/'.$name, $info);
+        $this->_data->setDeepValue('relations/' . $name, $info);
+        return $this;
+    }
+
+    public function addAbility($name, $info = array()) {
+        $this->_data->setDeepValue('abilities/' . $name, $info);
+        $this->_addedAbilities[] = $name;
         return $this;
     }
 
     public function saveStructure() {
         ModelOperator::getInstance()->setStructureForModel($this->_modelName, $this->_data->getArray());
         ModelOperator::getInstance()->saveModelStructure($this->_modelName);
+        return $this;
+    }
+
+    public function setupAddedAbilities() {
+        if (!empty($this->_addedAbilities) && class_exists($this->_modelName)) {
+            foreach($this->_addedAbilities as $abilityName) {
+                $instance = ModelOperator::getAbilityInstanceForModel(new $this->_modelName(), $abilityName);
+                $instance->setup();
+            }
+            $this->_addedAbilities = array();
+        }
+
         return $this;
     }
 
@@ -103,12 +123,20 @@ class ModelStructure {
         return $this->_data->get('columns');
     }
 
-    public function getRelations(){
+    public function getRelations() {
         return $this->_data->get('relations');
+    }
+
+    public function getAbilities() {
+        return $this->_data->get('abilities');
     }
 
     public function getRelationInfo($name) {
         return $this->_data->getDeepValue('relations/' . $name);
+    }
+
+    public function getAbilityInfo($name) {
+        return $this->_data->getDeepValue('abilities/' . $name);
     }
 
     public function get($key = null) {

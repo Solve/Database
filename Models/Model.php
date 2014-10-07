@@ -29,22 +29,25 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_tableName;
     private $_primaryKey;
     private $_collectionObjectReference;
-    private $_data           = array();
-    private $_originalData   = array();
-    private $_changedData    = array();
-    private $_isNew          = true;
-    private $_invokedGetters = array();
+    private $_data             = array();
+    private $_originalData     = array();
+    private $_changedData      = array();
+    private $_isNew            = true;
+    private $_invokedGetters   = array();
+    private $_abilitiesMethods = array();
 
     /**
      * @var null|string instance model name
      */
     private $_name = null;
 
-    public function __construct() {
+    public function __construct($data = array()) {
         $this->_name       = get_called_class();
         $this->_structure  = ModelStructure::getInstanceForModel($this->_name);
         $this->_tableName  = $this->_structure->getTableName();
         $this->_primaryKey = $this->_structure->getPrimaryKey();
+        $this->mergeWithData($data);
+        $this->initializeAbilities();
         $this->configure();
     }
 
@@ -76,7 +79,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         /**
          * @var Model $object
          */
-        $object = self::getModel(get_called_class());
+        $object                    = self::getModel(get_called_class());
         $customCollectionClassName = Inflector::pluralize($object->_name) . 'Collection';
         $collectionClass           = class_exists($customCollectionClassName) ? $customCollectionClassName : '\\Solve\\Database\\Models\\ModelCollection';
         return call_user_func(array($collectionClass, 'loadList'), $criteria, $object);
@@ -99,6 +102,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             }
         }
         $this->setOriginalData($qc->executeOne());
+        $this->_postLoad();
         return $this;
     }
 
@@ -154,6 +158,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     public function save($forceSave = false) {
         if (!$this->isChanged() && !$forceSave) return true;
 
+        $this->_preSave();
         $dataToSave = array();
         foreach ($this->_structure->getColumns() as $column => $info) {
             if (array_key_exists($column, $this->_changedData)) {
@@ -181,24 +186,90 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             $data = QC::create($this->_tableName)->where(array($this->_tableName . '.' . $this->_primaryKey => $this->{$this->_primaryKey}))->executeOne();
             $this->setOriginalData($data);
         }
-
+        $this->_postSave();
         $this->_isNew       = false;
         $this->_changedData = array();
         return true;
     }
 
-    public function getArray() {
-        $res = array();
-        foreach($this->_data as $key=>$value) {
-            $res[$key] = is_object($value) && ($value instanceof Model || $value instanceof ModelCollection) ? $value->getArray() : $value;
+    protected function initializeAbilities() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) return true;
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            $abilityInstance = ModelOperator::getAbilityInstanceForModel($this, $abilityName);
+            $abilityInstance->initialize();
+            $methods = $abilityInstance->getPublishedMethods();
+            foreach ($methods as $method => $info) {
+                $this->_abilitiesMethods[$method] = array(
+                    'ability' => $abilityInstance,
+                    'info'    => $info
+                );
+            }
         }
-        return $res;
+    }
+
+    /**
+     * @param string $relations
+     */
+    public function loadRelated($relations) {
+        $relations = explode(',', $relations);
+        $mr        = ModelRelation::getInstanceForModel($this);
+        foreach ($relations as $name) {
+            $mr->_loadRelated($this, $name);
+        }
+    }
+
+    public function delete() {
+        if ($this->isNew()) return false;
+
+        return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
+    }
+
+    protected function postLoad() {
+    }
+
+    protected function preSave() {
+    }
+
+    protected function postSave() {
+    }
+
+    protected function postDelete() {
+    }
+
+    protected function _postLoad() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->postLoad($this);
+        }
+        $this->postLoad();
+    }
+
+    protected function _preSave() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->preSave($this);
+        }
+        $this->preSave();
+    }
+
+    protected function _postSave() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->postSave($this);
+        }
     }
 
     /**
      * Could be used for configuring model after constructor is done
      */
-    protected function configure() {}
+    protected function configure() {
+    }
 
 
     public function isNew() {
@@ -209,10 +280,20 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return count($this->_changedData) > 0;
     }
 
-    public function delete() {
-        if ($this->isNew()) return false;
+    public function getArray() {
+        $res = array();
+        foreach ($this->_data as $key => $value) {
+            $res[$key] = is_object($value) && ($value instanceof Model || $value instanceof ModelCollection) ? $value->getArray() : $value;
+        }
+        return $res;
+    }
 
-        return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
+    public function getChangedData($field = null) {
+        if (!empty($field)) {
+            return array_key_exists($field, $this->_changedData) ? $this->_changedData[$field] : null;
+        } else {
+            return $this->_changedData;
+        }
     }
 
     /**
@@ -227,15 +308,15 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         }
     }
 
-    public function setCollectionReference($collectionObject) {
+    public function _setCollectionReference($collectionObject) {
         $this->_collectionObjectReference = $collectionObject;
     }
 
-    public function hasCollectionReference() {
+    public function _hasCollectionReference() {
         return (!is_null($this->_collectionObjectReference));
     }
 
-    public function getCollectionReference(){
+    public function _getCollectionReference() {
         return $this->_collectionObjectReference;
     }
 
@@ -293,6 +374,8 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } elseif (substr($method, 0, 12) == 'clearRelated') {
             ModelRelation::getInstanceForModel($this)->clearRelatedIDs($this, substr($method, 12), empty($params[0]) ? array() : $params[0]);
             return $this;
+        } elseif (array_key_exists($method, $this->_abilitiesMethods)) {
+            return $this->_abilitiesMethods[$method]['ability']->$method($this);
         } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(strtolower(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {
@@ -300,18 +383,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this;
         }
 
-        throw new \Exception('Undefined method for model: '.$method);
-    }
-
-    /**
-     * @param string $relations
-     */
-    public function loadRelated($relations) {
-        $relations = explode(',', $relations);
-        $mr = ModelRelation::getInstanceForModel($this);
-        foreach($relations as $name) {
-            $mr->_loadRelated($this, $name);
-        }
+        throw new \Exception('Undefined method for model: ' . $method);
     }
 
     public function getID() {

@@ -27,7 +27,7 @@ class SolveDatabaseTestBasic extends \PHPUnit_Framework_TestCase {
             'pass'    => 'root'
         ));
         self::$_storagePath = __DIR__ . '/storage/';
-        DBOperator::getInstance()->createDB(self::$_DBName)->useDB(self::$_DBName);
+        DBOperator::getInstance()->dropDB(self::$_DBName)->createDB(self::$_DBName)->useDB(self::$_DBName);
         FSService::unlinkRecursive(self::$_storagePath);
         QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
         call_user_func(array(get_called_class(), 'putTestContent'));

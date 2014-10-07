@@ -52,10 +52,18 @@ class ModelRelation {
     /**
      * @param Model|ModelCollection $caller
      * @param string $relationName
-     * @param mixed $foreignIDs
+     * @param Model|ModelCollection|array $foreignIDs
      * @throws \Exception
      */
     public function setRelatedIDs($caller, $relationName, $foreignIDs) {
+        if (is_object($foreignIDs)) {
+            if ($foreignIDs instanceof Model) {
+                $foreignIDs = array($foreignIDs->getID());
+            } elseif ($foreignIDs instanceof ModelCollection) {
+                $foreignIDs = $foreignIDs->getIDs();
+            }
+        }
+
         $info = ModelOperator::calculateRelationVariables($caller, $relationName);
         if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
 
@@ -93,10 +101,18 @@ class ModelRelation {
     /**
      * @param Model|ModelCollection $caller
      * @param string $relationName
-     * @param mixed $foreignIDs
+     * @param Model|ModelCollection|array $foreignIDs
      * @throws \Exception
      */
     public function clearRelatedIDs($caller, $relationName, $foreignIDs = array()) {
+        if (is_object($foreignIDs)) {
+            if ($foreignIDs instanceof Model) {
+                $foreignIDs = array($foreignIDs->getID());
+            } elseif ($foreignIDs instanceof ModelCollection) {
+                $foreignIDs = $foreignIDs->getIDs();
+            }
+        }
+
         $info = ModelOperator::calculateRelationVariables($caller, $relationName);
         if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
 
@@ -151,8 +167,8 @@ class ModelRelation {
         $idsMap         = array();
         $originalCaller = null;
 
-        if (($caller instanceof Model) && $caller->hasCollectionReference()) {
-            $caller = $caller->getCollectionReference();
+        if (($caller instanceof Model) && $caller->_hasCollectionReference()) {
+            $caller = $caller->_getCollectionReference();
         }
         if ($relationType == 'many_to_one') {
             $foreignIds = ModelOperator::getFieldArray($caller, $localField);

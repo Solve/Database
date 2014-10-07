@@ -76,7 +76,7 @@ class DBOperator {
      * @return DBOperator
      */
     public function dropDB($DBName = null) {
-        QC::executeSQL('DROP DATABASE '.$DBName);
+        QC::executeSQL('DROP DATABASE IF EXISTS '.$DBName);
         return $this;
     }
 
@@ -353,7 +353,7 @@ class DBOperator {
 
     /**
      * Update database from array
-     * @param mixed $structure
+     * @param mixed|ModelStructure $structure
      * @param bool $safeUpdate if true - method will delete not specified fields
      * @throws \Exception
      */
