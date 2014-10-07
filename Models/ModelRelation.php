@@ -77,7 +77,6 @@ class ModelRelation {
                 ->where(array($info['foreignKey']=>$foreignIDs))
                 ->execute();
         } else {
-            QC::create($info['manyTable'])->delete(array($info['foreignField']=>$localIDs))->execute();
             $data = array();
             foreach($localIDs as $fid) {
                 foreach($foreignIDs as $lid) {
@@ -85,7 +84,7 @@ class ModelRelation {
                 }
             }
             QC::create($info['manyTable'])
-              ->insert($data)
+              ->replace($data)
               ->execute();
         }
         $caller->loadRelated($relationName);
@@ -146,7 +145,6 @@ class ModelRelation {
          * @var $relationToMany
          */
         $varsToExport = ModelOperator::calculateRelationVariables($caller, $relationName);
-//        var_dump($varsToExport);die();
         extract($varsToExport);
 
         $foreignIds     = array();

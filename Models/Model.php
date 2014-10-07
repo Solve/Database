@@ -286,6 +286,13 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     public function __call($method, $params) {
         if (substr($method, -10) == 'RelatedIDs') {
             ModelRelation::getInstanceForModel($this)->$method($this, $params[0], $params[1]);
+            return $this;
+        } elseif (substr($method, 0, 10) == 'setRelated') {
+            ModelRelation::getInstanceForModel($this)->setRelatedIDs($this, substr($method, 10), $params[0]);
+            return $this;
+        } elseif (substr($method, 0, 12) == 'clearRelated') {
+            ModelRelation::getInstanceForModel($this)->clearRelatedIDs($this, substr($method, 12), empty($params[0]) ? array() : $params[0]);
+            return $this;
         } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(strtolower(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {
@@ -293,6 +300,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this;
         }
 
+        throw new \Exception('Undefined method for model: '.$method);
     }
 
     /**

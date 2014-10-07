@@ -281,6 +281,7 @@ class QC {
     }
 
     public function processRows($rows) {
+        if (empty($rows)) return array();
         if (($indexBy   = $this->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy =  $indexBy[0];
         if (($foldBy    = $this->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy =  $foldBy[0];
         $use            = $this->getModifier('use');

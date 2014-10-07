@@ -36,7 +36,7 @@ class ModelRelationTest extends SolveDatabaseTestBasic {
 
         $product = \Product::loadOne(1);
         $this->assertEquals(2, $product->categories->count(), 'loaded two Categories for Product 1 (many_to_many)');
-//
+
         $category = \Category::loadOne(1);
         $this->assertEquals('Macbook Air', $category->products->getFirst()->title, 'Product loaded for Category (many_to_many)');
 
@@ -48,15 +48,18 @@ class ModelRelationTest extends SolveDatabaseTestBasic {
 
         $cat = \Category::loadOne(2);
         $cat->setRelatedIDs('products', array(1,3));
-        $this->assertEquals(array(1,3), $cat->products->getIDs());
+        $this->assertEquals(array(1,3), $cat->products->getIDs(), 'set related ids for many_to_many');
 
         $cat->clearRelatedIDs('products', array(1));
-        var_dump($cat->products->getIDs());die();
-//        $category->setRelatedIDs('products', array(1,2));
-//        $category->addRelatedProducts(array(1,2,3));
-//        $category->clearRelatedProducts();
-    }
+        $this->assertEmpty(QC::create('products_categories')->where(array('id_product'=>1, 'id_category'=>2))->execute(), 'Clear related IDs for many_to_many');
 
+        $cat->setRelatedProducts(1);
+        $this->assertNotEmpty(QC::create('products_categories')->where(array('id_product'=>1, 'id_category'=>2))->execute(), 'Set related IDs with setter');
+
+        $brand = \Brand::loadOne(2);
+        $brand->clearRelatedProducts();
+        $this->assertEmpty(QC::create('products')->where(array('id_brand'=>2))->execute(), 'Clear related IDs with setter');
+    }
 
     protected static function putTestContent() {
         QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');

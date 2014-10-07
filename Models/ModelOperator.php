@@ -289,10 +289,10 @@ class ModelOperator {
         }
         if (!empty($this->_structures[$className]['relations'])) {
             $methodsText .= ' * @method mixed setRelatedIDs($relationName, $ids)' . "\n";
-            $methodsText .= ' * @method mixed addRelatedIDs($relationName, $ids)' . "\n";
             $methodsText .= ' * @method mixed clearRelatedIDs($relationName, $ids = null)' . "\n";
             foreach ($this->_structures[$className]['relations'] as $key => $props) {
-                //@todo add detect for ModelCollection
+                $methodsText .= ' * @method mixed setRelated' . Inflector::camelize($key) . '($ids)' . "\n";
+                $methodsText .= ' * @method mixed clearRelated' . Inflector::camelize($key) . '($ids = null)' . "\n";
                 $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'Model|ModelCollection') . ' ' . $key . "\n";
             }
         }
@@ -498,12 +498,13 @@ class ModelOperator {
      * @throws \Exception if not found relation info
      */
     public static function calculateRelationVariables($model, $relationName) {
+        $relationName = Inflector::underscore($relationName);
         if (!empty($_variablesHashes[$model->_getName() . $relationName])) {
             return $_variablesHashes[$model->_getName() . $relationName];
         }
 
         $relationInfo = $model->_getStructure()->getRelationInfo($relationName);
-        if (is_null($relationInfo)) throw new \Exception('Relation ' . $relationName . ' is not found');
+        if (is_null($relationInfo)) throw new \Exception('Relation ' . $relationName . ' is not found, probably capitalization');
         if (!is_array($relationInfo)) $relationInfo = array();
 
         $info               = array();

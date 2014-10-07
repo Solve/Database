@@ -17,11 +17,14 @@ require_once __DIR__ . "/../Models/DBOperator.php";
 
 class QCTest extends \PHPUnit_Framework_TestCase {
 
-    public function setUp() {
+    public static function setUpBeforeClass() {
         DatabaseService::configProfile(array(
             'user'  => 'root',
             'pass'  => 'root'
         ));
+    }
+
+    public function testForTest(){
     }
 
     public function testCreation() {
@@ -51,6 +54,12 @@ class QCTest extends \PHPUnit_Framework_TestCase {
             . 'LEFT JOIN users_details ON (u.id = user_details.id) '
             . 'WHERE ((`age` = 12) OR (`age` = 13) AND (is_active > 1 OR is_active = \'2\') AND ((type = 1) OR (type = 2)))',
             $sql, 'Left join select generator');
+
+        $sql = QC::create('users')
+                 ->where(array('id_user'=>12, 'id_operator'=>1))
+                 ->getSQL();
+        $this->assertEquals('SELECT * FROM `users` WHERE ((`id_user` = 12 AND `id_operator` = 1))', $sql, 'Complex where');
+
     }
 
     public function testInsert() {

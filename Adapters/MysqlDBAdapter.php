@@ -282,9 +282,6 @@ class MysqlDBAdapter extends BaseDBAdapter {
     private function processData($data, $glue = ',') {
         $sql = '';
         if (array_key_exists(0, $data)) {
-//            foreach($data as $item) {
-//                $sql .= $this->processData($item, $glue);
-//            }
             $sql .= $this->processParametricCondition($data);
         } else {
             foreach($data as $field => $value) {
@@ -326,12 +323,14 @@ class MysqlDBAdapter extends BaseDBAdapter {
                     $condition = $condition[0];
                 }
                 foreach($condition as $key=>$value) {
-                    if (is_scalar($value)) {
+                    if (is_scalar($value) || is_null($value)) {
                         $sql .=  $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
                     } else {
                         $sql .=  $this->escapeSqlName($key) . ' IN (' . $this->escape($value) . ')';
                     }
+                    $sql .= ' AND ';
                 }
+                $sql = substr($sql, 0, -5);
             }
         }
         return $sql;

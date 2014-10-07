@@ -216,6 +216,10 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     public function __call($method, $params) {
         if (substr($method, -10) == 'RelatedIDs') {
             ModelRelation::getInstanceForModel($this)->$method($this, $params[0], $params[1]);
+        } elseif (substr($method, 0, 10) == 'setRelated') {
+            ModelRelation::getInstanceForModel($this)->setRelatedIDs($this, substr($method, 10), $params[0]);
+        } elseif (substr($method, 0, 12) == 'clearRelated') {
+            ModelRelation::getInstanceForModel($this)->clearRelatedIDs($this, substr($method, 12), $params[0]);
         } elseif (in_array($method, $this->_modelsMethods)) {
             foreach($this->_data as $object) {
                 /**
