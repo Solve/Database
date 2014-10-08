@@ -18,7 +18,8 @@ use Solve\Utils\Inflector;
  *
  * Class ModelCollection is used to operate with collection of models
  *
- * @method _setRawFieldData($field, $value)
+ * @method _setRawFieldValue($field, $value)
+ * @method _setRawFieldData($data)
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
@@ -39,7 +40,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_tableName;
     private $_primaryKey;
     private $_modelsMethods = array(
-        '_setRawFieldValue'
+        '_setRawFieldValue', '_setRawFieldData'
     );
 
     public function __construct() {
@@ -90,7 +91,9 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
                 $qc->and($criteria);
             }
         }
+        $this->_preLoad($qc);
         $data = $qc->execute();
+        $this->_postLoad();
         if (empty($data)) $data = array();
 
         $this->_data = array();
@@ -117,6 +120,38 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($relations as $name) {
             $mr->_loadRelated($this, $name);
         }
+    }
+
+    /**
+     * @param QC $qc
+     */
+    public function preLoad($qc) {
+    }
+
+    public function postLoad() {
+    }
+
+    /**
+     * @param QC $qc
+     */
+    public function _preLoad($qc) {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this->_modelClass, $abilityName)->preLoad($this, $qc);
+        }
+        $this->preLoad($qc);
+    }
+
+    public function _postLoad() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this->_modelClass, $abilityName)->postLoad($this);
+        }
+        $this->postLoad();
     }
 
     public function getArray() {
@@ -227,6 +262,9 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
                  */
                 call_user_func_array(array($object, $method), $params);
             }
+        } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_modelClass, $method)) {
+            array_unshift($params, $this);
+            return call_user_func_array(array($methodInfo['ability'], $method), $params);
         }
         return $this;
     }

@@ -259,6 +259,7 @@ class DBOperator {
             if (!empty($varStructure['abilities']['mlt']['columns']) && in_array($name, $varStructure['abilities']['mlt']['columns'])) continue;
             if (!is_array($info)) $info = array('type'=>$info);
             if (!isset($info['name'])) $info['name'] = $name;
+            if (!empty($varStructure['columns'][$name]['virtual'])) continue;
 
             if (!isset($current_structure['columns'][$name]) && !(isset($info['old_name']) && isset($current_structure['columns'][$info['old_name']]))) {
                 if ((isset($info['auto_increment']))) {
@@ -303,7 +304,7 @@ class DBOperator {
         }
         // Dropping unused columns from DB
         foreach($current_structure['columns'] as $name=>$info) {
-            if (!isset($varStructure['columns'][$name])) {
+            if (!isset($varStructure['columns'][$name]) || !empty($varStructure['columns'][$name]['virtual'])) {
                 $sql_diff = 'ALTER TABLE' . ' ' . $varStructure['table'].' DROP COLUMN `'.$name.'`';
                 $res['sql']['DROP'][] = $sql_diff;
             }
@@ -377,9 +378,8 @@ class DBOperator {
     public function updateDBRelations($modelName, $structure) {
         if (empty($structure['relations'])) return true;
 
-        $modelObject = new $modelName();
         foreach($structure['relations'] as $relationName => $relationInfo) {
-            $info = ModelOperator::calculateRelationVariables($modelObject, $relationName);
+            $info = ModelOperator::calculateRelationVariables($modelName, $relationName);
             switch($info['relationType']) {
                 case 'many_to_many':
                     $this->updateManyTable($info);
@@ -459,6 +459,7 @@ class DBOperator {
         foreach($structure['columns'] as $column=>$info) {
             if (!is_array($info)) $info = array('type'=>$info);
             if (!isset($info['name'])) $info['name'] = $column;
+            if (!empty($info['virtual'])) continue;
             $sql .= $this->generateColumnSQL($info).','."\n";
         }
         if (!empty($structure['indexes'])) {
@@ -491,7 +492,6 @@ class DBOperator {
         if (isset($info['old_name'])) {
             $sql = '`'.$info['old_name'].'` ';
         }
-
         $sql .= '`'.$info['name'].'` '.$info['type'];
         if (isset($info['unsigned'])) $sql .= ' unsigned';
         if (isset($info['zerofill'])) $sql .= ' zerofill';

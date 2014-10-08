@@ -10,7 +10,9 @@
 namespace Solve\Database\Models\Abilities;
 
 use Solve\Database\Models\Model;
+use Solve\Database\Models\ModelCollection;
 use Solve\Database\Models\ModelStructure;
+use Solve\Database\QC;
 use Solve\Utils\Inflector;
 
 /**
@@ -24,39 +26,35 @@ use Solve\Utils\Inflector;
  */
 abstract class BaseModelAbility {
 
-    protected $_params           = array();
-    protected $_primaryKey;
-    protected $_tableName;
-    protected $_publishedMethods = array();
-    /**
-     * @var Model
-     */
-    protected      $_model;
+    protected      $_config                 = array();
+    protected      $_primaryKey;
+    protected      $_tableName;
+    protected      $_publishedMethods       = array();
+    protected      $_publishedStaticMethods = array();
+    protected      $_modelName;
     protected      $_modelStructure;
-    private static $_modelInstances = array();
+    private static $_modelInstances         = array();
 
-    /**
-     * @param Model $model
-     */
-    private function __construct($model) {
-        if (!isset($model)) return true;
-        $this->_model          = $model;
-        $this->_modelStructure = $model->_getStructure();
-        $this->_params         = $model->_getStructure('abilities/' . Inflector::underscore(substr(get_class($this), 0, -7)));
+    private function __construct($modelName) {
+        $this->_modelName      = $modelName;
+        $this->_modelStructure = ModelStructure::getInstanceForModel($modelName);
         $this->_primaryKey     = $this->_modelStructure->getPrimaryKey();
-        $this->_tableName      = $this->_model->_getStructure('table');
+        $this->_tableName      = $this->_modelStructure->getTableName();
+        $this->reloadConfig();
     }
 
+    protected function reloadConfig() {
+        $abilityName   = get_class($this);
+        $abilityName   = Inflector::underscore(substr($abilityName, strrpos($abilityName, '\\') + 1, -7));
+        $this->_config = $this->_modelStructure->getAbilityInfo($abilityName);
+    }
 
-    /**
-     * @param Model $modelInstance
-     */
-    public static function getInstanceForModel($modelInstance) {
+    public static function getInstanceForModel($modelName) {
         $abilityClass = get_called_class();
-        if (empty(self::$_modelInstances[$modelInstance->_getName()])) {
-            self::$_modelInstances[$modelInstance->_getName()] = new $abilityClass($modelInstance);
+        if (empty(self::$_modelInstances[$modelName])) {
+            self::$_modelInstances[$modelName] = new $abilityClass($modelName);
         }
-        return self::$_modelInstances[$modelInstance->_getName()];
+        return self::$_modelInstances[$modelName];
     }
 
     /**
@@ -78,12 +76,20 @@ abstract class BaseModelAbility {
     public function initialize() {
     }
 
+    public function cleanup() {
+    }
+
     /**
      * Use for dynamic publishing actions
      * @param string $methodName
+     * @param bool $isStatic
      */
-    protected function publishMethod($methodName) {
-        $this->_publishedMethods[$methodName] = array();
+    protected function publishMethod($methodName, $isStatic = false) {
+        if ($isStatic) {
+            $this->_publishedStaticMethods[$methodName] = array();
+        } else {
+            $this->_publishedMethods[$methodName] = array();
+        }
     }
 
     /**
@@ -94,17 +100,36 @@ abstract class BaseModelAbility {
         return $this->_publishedMethods;
     }
 
+    public function getPublishedStaticMethods() {
+        return $this->_publishedStaticMethods;
+    }
+
+    /**
+     * @param Model|ModelCollection $caller
+     * @param QC $qc
+     */
+    public function preLoad($caller, $qc) {
+    }
+
+    /**
+     * @param Model|ModelCollection $caller
+     */
     public function postLoad($caller) {
     }
 
+    /**
+     * @param Model|ModelCollection $caller
+     */
     public function preSave($caller) {
     }
 
+    /**
+     * @param Model|ModelCollection $caller
+     */
     public function postSave($caller) {
     }
 
-    static public function getInitialStructure(ModelStructure $structure) {
-        return 'true';
+    static public function getInitialStructure() {
     }
 
     public function requireParametersCount($count, &$params) {

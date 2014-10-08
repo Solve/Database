@@ -11,7 +11,6 @@ namespace Solve\Database\Tests;
 
 require_once 'SolveDatabaseTestBasic.php';
 use Solve\Database\Models\ModelOperator;
-use Solve\Database\Models\ModelRelation;
 use Solve\Database\Models\ModelStructure;
 use Solve\Database\QC;
 

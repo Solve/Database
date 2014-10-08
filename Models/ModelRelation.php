@@ -64,7 +64,7 @@ class ModelRelation {
             }
         }
 
-        $info = ModelOperator::calculateRelationVariables($caller, $relationName);
+        $info = ModelOperator::calculateRelationVariables($caller->_getName(), $relationName);
         if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
 
         $localIDs = ModelOperator::getIDs($caller);
@@ -113,7 +113,7 @@ class ModelRelation {
             }
         }
 
-        $info = ModelOperator::calculateRelationVariables($caller, $relationName);
+        $info = ModelOperator::calculateRelationVariables($caller->_getName(), $relationName);
         if (!is_array($foreignIDs)) $foreignIDs = array($foreignIDs);
 
         $localIDs = ModelOperator::getIDs($caller);
@@ -140,7 +140,7 @@ class ModelRelation {
     }
 
     /**
-     * @param $caller
+     * @param Model|ModelCollection $caller
      * @param $relationName
      * @return $this
      * @throws \Exception
@@ -160,7 +160,7 @@ class ModelRelation {
          * @var $fieldsToRetrieve
          * @var $relationToMany
          */
-        $varsToExport = ModelOperator::calculateRelationVariables($caller, $relationName);
+        $varsToExport = ModelOperator::calculateRelationVariables($caller->_getName(), $relationName);
         extract($varsToExport);
 
         $foreignIds     = array();

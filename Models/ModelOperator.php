@@ -44,9 +44,10 @@ class ModelOperator {
     /**
      * @var array all loaded structures
      */
-    private        $_structures        = array();
-    private        $_isSeparateStorage = true;
-    private static $_variablesHashes   = array();
+    private        $_structures            = array();
+    private        $_isSeparateStorage     = true;
+    private static $_variablesCache        = array();
+    private static $_abilitiesMethodsCache = array();
 
     /**
      * @var array used for check syntax in model structure files
@@ -357,7 +358,10 @@ class ModelOperator {
 
     public function updateDBForAllModels($safeUpdate = true) {
         $models = array_keys($this->_structures);
-        foreach ($models as $model) $this->updateDBForModel($model, $safeUpdate);
+        foreach ($models as $model) {
+            $this->updateDBForModel($model, $safeUpdate);
+        }
+        return $this;
     }
 
     /**
@@ -474,23 +478,24 @@ class ModelOperator {
     }
 
     /**
-     * @param Model $model
+     * @param string $modelName
      * @param string $relationName
      * @return array
      * @throws \Exception if not found relation info
      */
-    public static function calculateRelationVariables($model, $relationName) {
+    public static function calculateRelationVariables($modelName, $relationName) {
         $relationName = Inflector::underscore($relationName);
-        if (!empty($_variablesHashes[$model->_getName() . $relationName])) {
-            return $_variablesHashes[$model->_getName() . $relationName];
+        if (!empty(self::$_variablesCache[$modelName . $relationName])) {
+            return self::$_variablesCache[$modelName . $relationName];
         }
 
-        $relationInfo = $model->_getStructure()->getRelationInfo($relationName);
+        $modelStructure = ModelStructure::getInstanceForModel($modelName);
+        $relationInfo   = $modelStructure->getRelationInfo($relationName);
         if (is_null($relationInfo)) throw new \Exception('Relation ' . $relationName . ' is not found, probably capitalization');
         if (!is_array($relationInfo)) $relationInfo = array();
 
         $info               = array();
-        $info['localTable'] = $model->_getStructure()->getTableName();
+        $info['localTable'] = $modelStructure->getTableName();
 
         foreach ($relationInfo as $key => $value) {
             $info[lcfirst(Inflector::camelize($key))] = $value;
@@ -519,13 +524,13 @@ class ModelOperator {
             $relatedStructure = null;
         }
 
-        if (!isset($info['localKey'])) $info['localKey'] = $model->_getStructure()->getPrimaryKey();
+        if (!isset($info['localKey'])) $info['localKey'] = $modelStructure->getPrimaryKey();
         if (!isset($info['foreignKey'])) $info['foreignKey'] = empty($relatedStructure) ? 'id' : $relatedStructure->getPrimaryKey();
 
         $foreignTable = $relatedStructure ? $relatedStructure->getTableName() : (isset($info['table']) ? $info['table'] : $relationName);
 
         $autoLocalField   = 'id_' . Inflector::underscore($info['relatedModelName']);
-        $autoForeignField = 'id_' . Inflector::underscore($model->_getName());
+        $autoForeignField = 'id_' . Inflector::underscore($modelName);
         $hasLocalField    = false;
         $hasForeignField  = false;
 
@@ -535,7 +540,7 @@ class ModelOperator {
                 if (empty($info['foreignField'])) $info['foreignField'] = $autoForeignField;
                 $hasForeignField = true;
             }
-            if ($model->_getStructure()->hasColumn($autoLocalField)) {
+            if ($modelStructure->hasColumn($autoLocalField)) {
                 if (empty($info['type'])) $info['type'] = 'many_to_one';
                 if (empty($info['localField'])) $info['localField'] = $autoLocalField;
                 $hasLocalField = true;
@@ -551,7 +556,7 @@ class ModelOperator {
         unset($info['type']);
 
         if (empty($info['manyTable'])) $info['manyTable'] = ($info['localTable'] > $foreignTable ? $info['localTable'] . '_' . $foreignTable : $foreignTable . '_' . $info['localTable']);
-        $_variablesHashes[$model->_getName() . $relationName] = $info;
+        self::$_variablesCache[$modelName . $relationName] = $info;
 
         return $info;
     }
@@ -580,17 +585,59 @@ class ModelOperator {
     }
 
     /**
-     * @param $modelInstance
+     * @param $modelName
      * @param $abilityName
      * @return BaseModelAbility
      * @throws \Exception
      */
-    public static function getAbilityInstanceForModel($modelInstance, $abilityName) {
+    public static function getAbilityInstanceForModel($modelName, $abilityName) {
         $abilityClass = '\\Solve\\Database\\Models\\Abilities\\' . Inflector::camelize($abilityName) . 'Ability';
         if (!class_exists($abilityClass)) throw new \Exception('Ability ' . $abilityName . ' not found');
 
-        $abilityInstance = call_user_func(array($abilityClass, 'getInstanceForModel'), $modelInstance);
+        $abilityInstance = call_user_func(array($abilityClass, 'getInstanceForModel'), $modelName);
+        self::cacheAbilitiesMethods($modelName, $abilityName, $abilityInstance);
         return $abilityInstance;
+    }
+
+    public static function getInstanceAbilityMethod($modelName, $method) {
+        return !empty(self::$_abilitiesMethodsCache[$modelName]['instance'][$method]) ? self::$_abilitiesMethodsCache[$modelName]['instance'][$method] : null;
+    }
+
+    public static function getStaticAbilityMethod($modelName, $method) {
+        return !empty(self::$_abilitiesMethodsCache[$modelName]['static'][$method]) ? self::$_abilitiesMethodsCache[$modelName]['static'][$method] : null;
+    }
+
+    /**
+     * @param $modelName
+     * @param $abilityName
+     * @param BaseModelAbility $abilityInstance
+     */
+    private static function cacheAbilitiesMethods($modelName, $abilityName, $abilityInstance) {
+        if (empty(self::$_abilitiesMethodsCache[$modelName])) {
+            self::$_abilitiesMethodsCache[$modelName] = array();
+        }
+        if (!array_key_exists($abilityName, self::$_abilitiesMethodsCache[$modelName])) {
+            self::$_abilitiesMethodsCache[$modelName] = array(
+                'instance' => array(),
+                'static'   => array(),
+            );
+
+            $methods = $abilityInstance->getPublishedMethods();
+            foreach ($methods as $method => $info) {
+                self::$_abilitiesMethodsCache[$modelName]['instance'][$method] = array(
+                    'ability' => $abilityInstance,
+                    'info'    => $info
+                );
+            }
+            $methods = $abilityInstance->getPublishedStaticMethods();
+            foreach ($methods as $method => $info) {
+                self::$_abilitiesMethodsCache[$modelName]['static'][$method] = array(
+                    'ability' => $abilityInstance,
+                    'info'    => $info
+                );
+            }
+
+        }
     }
 
 } 

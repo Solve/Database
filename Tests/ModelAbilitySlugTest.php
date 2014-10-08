@@ -18,7 +18,7 @@ use Solve\Database\QC;
 class ModelAbilitySlugTest extends SolveDatabaseTestBasic {
 
     public function testBasic() {
-        $brand = new \Brand(array('title'=>'Apple'));
+        $brand = new \Brand(array('title' => 'Apple'));
         $brand->save();
         $this->assertEquals('apple', $brand->getSlug(), 'slug ability for Apple');
 
@@ -41,18 +41,17 @@ class ModelAbilitySlugTest extends SolveDatabaseTestBasic {
         $mo = ModelOperator::getInstance($storagePath);
         $mo->generateBasicStructure('Brand');
 
-        $ms = ModelStructure::getInstanceForModel('Brand')
-                      ->addAbility('slug')
-                      ->saveStructure();
+        ModelStructure::getInstanceForModel('Brand')
+                            ->addAbility('slug')
+                            ->saveStructure();
 
         $mo->generateAllModelClasses();
         require_once $storagePath . 'bases/BaseBrand.php';
         require_once $storagePath . 'classes/Brand.php';
-        $ms->setupAddedAbilities();
         $mo->updateDBForAllModels();
     }
 
-//    public static function tearDownAfterClass() {}
+    public static function tearDownAfterClass() {}
 
 }
  

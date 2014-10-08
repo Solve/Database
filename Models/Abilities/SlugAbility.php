@@ -32,7 +32,7 @@ class SlugAbility extends BaseModelAbility {
     public function setup() {
         if (!$this->_modelStructure->hasColumn($this->_valueField)) {
             $this->_modelStructure->addColumn($this->_valueField, array('type' => 'varchar(255)'))->saveStructure();
-            ModelOperator::getInstance()->updateDBForModel($this->_model->_getName());
+            ModelOperator::getInstance()->updateDBForModel($this->_modelName);
         }
     }
 

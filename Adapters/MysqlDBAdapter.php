@@ -47,9 +47,8 @@ class MysqlDBAdapter extends BaseDBAdapter {
                 $this->_dbh->query('USE '.$options['name']);
             }
             $this->_dbh->setAttribute(\PDO::ATTR_AUTOCOMMIT , true);
-            if (!empty($options['charset'])) {
-                $this->_dbh->query('SET NAMES '.$options['charset']);
-            }
+            if (empty($options['charset'])) $options['charset'] = 'utf8';
+            $this->_dbh->query('SET NAMES '.$options['charset']);
         } catch (\PDOException $e) {
             throw new MysqlDBAdapterException('PDO Connection Error: ' . $e->getMessage());
         }

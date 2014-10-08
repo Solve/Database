@@ -29,12 +29,13 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_tableName;
     private $_primaryKey;
     private $_collectionObjectReference;
-    private $_data             = array();
-    private $_originalData     = array();
-    private $_changedData      = array();
-    private $_isNew            = true;
-    private $_invokedGetters   = array();
-    private $_abilitiesMethods = array();
+    private $_internalObjectHash;
+
+    private $_data                   = array();
+    private $_originalData           = array();
+    private $_changedData            = array();
+    private $_isNew                  = true;
+    private $_invokedGetters         = array();
 
     /**
      * @var null|string instance model name
@@ -42,10 +43,11 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_name = null;
 
     public function __construct($data = array()) {
-        $this->_name       = get_called_class();
-        $this->_structure  = ModelStructure::getInstanceForModel($this->_name);
-        $this->_tableName  = $this->_structure->getTableName();
-        $this->_primaryKey = $this->_structure->getPrimaryKey();
+        $this->_name               = get_called_class();
+        $this->_internalObjectHash = md5(time() . microtime(true));
+        $this->_structure          = ModelStructure::getInstanceForModel($this->_name);
+        $this->_tableName          = $this->_structure->getTableName();
+        $this->_primaryKey         = $this->_structure->getPrimaryKey();
         $this->mergeWithData($data);
         $this->initializeAbilities();
         $this->configure();
@@ -73,7 +75,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     /**
      * @param QC|mixed $criteria
-     * @return mixed
+     * @return ModelCollection
      */
     public static function loadList($criteria = null) {
         /**
@@ -101,6 +103,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
                 $qc->and($criteria);
             }
         }
+        $this->_preLoad($qc);
         $this->setOriginalData($qc->executeOne());
         $this->_postLoad();
         return $this;
@@ -139,6 +142,13 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this;
     }
 
+    public function _setRawFieldData($data) {
+        foreach($data as $field=>$value) {
+            $this->_data[$field] = $this->_originalData[$field] = $value;
+        }
+        return $this;
+    }
+
     /**
      * Merge current data with provided
      * @param $data
@@ -157,7 +167,6 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     public function save($forceSave = false) {
         if (!$this->isChanged() && !$forceSave) return true;
-
         $this->_preSave();
         $dataToSave = array();
         foreach ($this->_structure->getColumns() as $column => $info) {
@@ -197,15 +206,8 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if (empty($abilities)) return true;
 
         foreach ($abilities as $abilityName => $abilityInfo) {
-            $abilityInstance = ModelOperator::getAbilityInstanceForModel($this, $abilityName);
+            $abilityInstance = ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName);
             $abilityInstance->initialize();
-            $methods = $abilityInstance->getPublishedMethods();
-            foreach ($methods as $method => $info) {
-                $this->_abilitiesMethods[$method] = array(
-                    'ability' => $abilityInstance,
-                    'info'    => $info
-                );
-            }
         }
     }
 
@@ -226,6 +228,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
     }
 
+    protected function preLoad($qc) {
+    }
+
     protected function postLoad() {
     }
 
@@ -238,11 +243,22 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     protected function postDelete() {
     }
 
+    protected function _preLoad(QC $qc) {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->preLoad($this, $qc);
+        }
+        $this->preLoad($qc);
+    }
+
     protected function _postLoad() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
+
         foreach ($abilities as $abilityName => $abilityInfo) {
-            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->postLoad($this);
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->postLoad($this);
         }
         $this->postLoad();
     }
@@ -252,7 +268,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if (empty($abilities)) $abilities = array();
 
         foreach ($abilities as $abilityName => $abilityInfo) {
-            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->preSave($this);
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->preSave($this);
         }
         $this->preSave();
     }
@@ -261,7 +277,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
         foreach ($abilities as $abilityName => $abilityInfo) {
-            ModelOperator::getAbilityInstanceForModel($this, $abilityName)->postSave($this);
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->postSave($this);
         }
     }
 
@@ -294,6 +310,15 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } else {
             return $this->_changedData;
         }
+    }
+
+    public function clearChangedData($field = null) {
+        if (!empty($field)) {
+            unset($this->_changedData[$field]);
+        } else {
+            $this->_changedData = array();
+        }
+        return $this;
     }
 
     /**
@@ -374,8 +399,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } elseif (substr($method, 0, 12) == 'clearRelated') {
             ModelRelation::getInstanceForModel($this)->clearRelatedIDs($this, substr($method, 12), empty($params[0]) ? array() : $params[0]);
             return $this;
-        } elseif (array_key_exists($method, $this->_abilitiesMethods)) {
-            return $this->_abilitiesMethods[$method]['ability']->$method($this);
+        } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
+            array_unshift($params, $this);
+            return call_user_func_array(array($methodInfo['ability'],$method), $params);
         } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(strtolower(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {
@@ -386,8 +412,19 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         throw new \Exception('Undefined method for model: ' . $method);
     }
 
+    public static function __callStatic($method, $params) {
+        if ($methodInfo = ModelOperator::getStaticAbilityMethod(get_called_class(), $method)) {
+            return $methodInfo['ability']->$method($params);
+        }
+        throw new \Exception('Undefined static method for model: ' . $method);
+    }
+
     public function getID() {
         return $this->_data[$this->_primaryKey];
+    }
+
+    public function getInternalObjectHash() {
+        return $this->_internalObjectHash;
     }
 
     public function getIterator() {

@@ -14,7 +14,7 @@
     "require": {
         "php": ">=5.3.0",
         "solve/inflector": ">=1.0.3",
-        "solve/storage": "*",
+        "solve/storage": ">=1.0.2",
         "solve/fsservice": "*"
     },
     "autoload": {
