@@ -3,6 +3,17 @@ Database
 
 Database component for Solve framework
 
+**Need to be realized**
+> FilesAbility
+> TimeTrackAbility
+> SortAbility
+> TreeAbility
+> HistoryAbility
+> DynamicAbility
+
+> Paginator
+> Validation
+
 ### Sample model structure
 **Brand:**
 ```yaml
