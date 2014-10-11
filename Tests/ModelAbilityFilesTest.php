@@ -12,27 +12,12 @@ namespace Solve\Database\Tests;
 require_once 'SolveDatabaseTestBasic.php';
 use Solve\Database\Models\Abilities\FilesAbility;
 use Solve\Database\Models\ModelOperator;
-use Solve\Database\Models\ModelRelation;
 use Solve\Database\Models\ModelStructure;
 use Solve\Database\QC;
 use Solve\Utils\FSService;
 
 class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
 
-    public function testIndex() {
-//        $brand = new \Brand(array('title'=>'Apple'));
-//        $_FILES['logo'] = array(
-//            'tmp_name'  => __DIR__ . '/../README.md',
-//            'name'   => 'readme.md'
-//        );
-//        $_FILES['info_file'] = array(
-//            'tmp_name'  => __DIR__ . '/../README.md',
-//            'name'   => 'readme.md'
-//        );
-////        $brand->setFieldNameForAlias('info', 'info_file');
-//        $brand->save();
-//        die('2');
-    }
 
     public function testBasic() {
         $brand = new \Brand(array('title' => 'Apple'));
@@ -108,6 +93,8 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
     }
 
     public static function tearDownAfterClass() {
+        parent::tearDownAfterClass();
+        FSService::unlinkRecursive(__DIR__ . '/upload');
     }
 
 }

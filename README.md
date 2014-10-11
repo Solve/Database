@@ -3,8 +3,24 @@ Database
 
 Database component for Solve framework
 
+Already done:
+```
+QC
+MysqlDBAdaptor
+DBOperator
+ModelOperator
+ModelStructure
+
+Model
+ModelCollection
+ModelRelation
+
+SlugAbility
+TranslateAbility
+FilesAbility
+```
+
 **Need to be realized**
-> FilesAbility
 > SortAbility
 > TimeTrackAbility
 > TreeAbility
