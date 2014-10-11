@@ -224,7 +224,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     public function delete() {
         if ($this->isNew()) return false;
+        $this->_preDelete();
 
+        unset($this);
         return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
     }
 
@@ -240,7 +242,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     protected function postSave() {
     }
 
-    protected function postDelete() {
+    protected function preDelete() {
     }
 
     protected function _preLoad(QC $qc) {
@@ -279,6 +281,16 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($abilities as $abilityName => $abilityInfo) {
             ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->postSave($this);
         }
+        $this->postSave();
+    }
+
+    protected function _preDelete() {
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->preDelete($this);
+        }
+        $this->preDelete();
     }
 
     /**
@@ -381,6 +393,10 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } elseif ($this->_structure->hasRelation($key) && !$this->_isNew) {
             $mr = ModelRelation::getInstanceForModel($this);
             $mr->_loadRelated($this, $key);
+        } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
+            if (empty($params)) $params = array();
+            array_unshift($params, $this);
+            call_user_func_array(array($methodInfo['ability'], $method), $params);
         }
         if (array_key_exists($key, $this->_data)) {
             return $this->_data[$key];
@@ -458,4 +474,4 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         unset($this->_data[$offset]);
     }
 
-} 
+}

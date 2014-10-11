@@ -636,7 +636,6 @@ class ModelOperator {
                     'info'    => $info
                 );
             }
-
         }
     }
 

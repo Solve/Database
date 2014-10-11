@@ -161,6 +161,11 @@ class TranslateAbility extends BaseModelAbility {
         return true;
     }
 
+    public function preDelete($caller) {
+        $ids = ModelOperator::getIDs($caller);
+        QC::create($this->_tableName)->delete(array('id_object'=>$ids))->execute();
+    }
+
 
     private function detectTranslatableColumns() {
         $columns = array();

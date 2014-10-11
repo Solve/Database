@@ -129,6 +129,13 @@ abstract class BaseModelAbility {
     public function postSave($caller) {
     }
 
+    /**
+     * @param Model|ModelCollection $caller
+     */
+    public function preDelete($caller) {
+
+    }
+
     static public function getInitialStructure() {
     }
 
