@@ -3,7 +3,7 @@ Database
 
 Database component for Solve framework
 
-Already done:
+**Already done:**
 ```
 QC
 MysqlDBAdaptor
