@@ -17,7 +17,7 @@ ModelRelation
 
 SlugAbility
 TranslateAbility
-FilesAbility
+FilesAbility (+thumbnails)
 ```
 
 **Need to be realized**
