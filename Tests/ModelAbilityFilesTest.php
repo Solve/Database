@@ -62,6 +62,13 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
         $brand->delete();
     }
 
+    public function testImages() {
+        $brand = new \Brand(array('title' => 'test'));
+        $brand->save();
+        $brand->attachFileFromPath('avatar', __DIR__ . '/assets/flower.jpg');
+        var_dump($brand->avatar);die();
+    }
+
 
     protected static function putTestContent() {
         QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
@@ -79,6 +86,15 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
                           ),
                           'info' => array(
                           ),
+                          'avatar'  => array(
+                              'sizes'   => array(
+                                  'small'  =>
+                                      array(
+                                          'size' => '100x100',
+                                          'method' => 'fitOut'
+                                      )
+                              )
+                          )
                       ))
                       ->saveStructure();
 
@@ -93,8 +109,8 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
     }
 
     public static function tearDownAfterClass() {
-        parent::tearDownAfterClass();
-        FSService::unlinkRecursive(__DIR__ . '/upload');
+//        parent::tearDownAfterClass();
+//        FSService::unlinkRecursive(__DIR__ . '/upload');
     }
 
 }

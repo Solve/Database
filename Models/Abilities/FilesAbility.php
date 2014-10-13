@@ -10,6 +10,7 @@
 namespace Solve\Database\Models\Abilities;
 use Solve\Database\Models\Model;
 use Solve\Database\Models\ModelCollection;
+use Solve\Graphics\ImageProcessor;
 use Solve\Utils\FSService;
 use Solve\Utils\Inflector;
 
@@ -106,6 +107,19 @@ class FilesAbility extends BaseModelAbility {
             }
         }
         copy($filePath, $storeLocation . $newFileName . $newFileExtension);
+        if (!empty($this->_config[$alias]['sizes'])) {
+            $ip = new ImageProcessor($storeLocation . $newFileName . $newFileExtension);
+            foreach($this->_config[$alias]['sizes'] as $sizeAlias => $sizeInfo) {
+                if (!is_array($sizeInfo)) $sizeInfo = array('size'=>$sizeInfo);
+                $method = empty($sizeInfo['method']) ? 'fitOut' : $sizeInfo['method'];
+                $params = explode('x', $sizeInfo['size']);
+                if (!empty($sizeInfo['geometry'])) {
+                    $params[] = $sizeInfo['geometry'];
+                }
+                call_user_func_array(array($ip, $method), $params);
+                $ip->saveAs($storeLocation . $sizeAlias . '/' . $newFileName . $newFileExtension);
+            }
+        }
 
         $caller->_setRawFieldValue($alias, $this->getModelValue($storeLocation, $this->_config[$alias]));
     }
@@ -148,7 +162,13 @@ class FilesAbility extends BaseModelAbility {
         $filesToInfo = GLOB($storagePath . '*.*');
         $value = array();
         foreach($filesToInfo as $file) {
-            $value[] = FSService::getFileInfo($file);
+            $fileInfo = FSService::getFileInfo($file);
+            if (!empty($aliasInfo['sizes'])) {
+                foreach($aliasInfo['sizes'] as $sizeAlias => $sizeInfo) {
+                    $fileInfo[$sizeAlias] = FSService::getFileInfo($storagePath  . $sizeAlias . '/' . $fileInfo['full_name']);
+                }
+            }
+            $value[] = $fileInfo;
         }
         return empty($aliasInfo['multiple']) && count($value) ? $value[0] : $value;
     }

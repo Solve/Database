@@ -15,7 +15,8 @@
         "php": ">=5.3.0",
         "solve/inflector": ">=1.0.3",
         "solve/storage": ">=1.0.2",
-        "solve/fsservice": "*"
+        "solve/fsservice": "*",
+        "solve/graphics": ">=1.0.2"
     },
     "autoload": {
         "psr-0": { "Solve\\Database\\": "" }
