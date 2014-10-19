@@ -100,5 +100,4 @@ $list = Product::loadList(QC::create()->where('id < :d', 3));
 //$list->loadRelated('brand'); - optional
 echo $list->getFirst()->brand->id;
 $list->getFirst()->setRelatedBrand(1); // set related by id
-
 ```
