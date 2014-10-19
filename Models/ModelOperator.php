@@ -260,6 +260,44 @@ class ModelOperator {
         return true;
     }
 
+    public function generateDataProcessorRules($modelName) {
+        $rules = array();
+        $structure = ModelStructure::getInstanceForModel($modelName);
+        foreach ($structure->getColumns() as $columnName => $columnInfo) {
+            if (!is_array($columnInfo)) continue;
+
+            $columnRules = array(array(), array());
+            if (!empty($columnInfo['validation'])) {
+                $columnRules[0] = $columnInfo['validation'];
+            }
+            if (!empty($columnInfo['process'])) {
+                $columnRules[1] = $columnInfo['process'];
+            }
+            // checking default column configurations
+            if (!empty($columnInfo['not_null'])) {
+                $columnRules[0] = array_merge(array('mandatory' => true), $columnRules[0]);
+            }
+            if (strpos($columnName, 'email') !== false) {
+                $columnRules[0] = array_merge(array('email'=>true), $columnRules[0]);
+            }
+            if (!empty($columnRules[0]) || !empty($columnRules[1])) {
+                $rules[$columnName] = $columnRules;
+                $value = array();
+                if (!empty($columnRules[0])) {
+                    $value['validation'] = $columnRules[0];
+                }
+                if (!empty($columnRules[1])) {
+                    $value['process'] = $columnRules[1];
+                }
+                $structure->updateColumnInfo($columnName, $value);
+            }
+        }
+        $structure->saveStructure();
+
+        return $rules;
+
+    }
+
 
     /**
      * Generate Model file if it's not exist

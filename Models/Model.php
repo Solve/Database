@@ -10,6 +10,7 @@
 namespace Solve\Database\Models;
 require_once __DIR__ . '/../Models/ModelCollection.php';
 use Solve\Database\QC;
+use Solve\DataTools\DataProcessor;
 use Solve\Utils\Inflector;
 use Solve\Database\Models\ModelCollection;
 
@@ -31,11 +32,16 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     private $_collectionObjectReference;
     private $_internalObjectHash;
 
-    private $_data                   = array();
-    private $_originalData           = array();
-    private $_changedData            = array();
-    private $_isNew                  = true;
-    private $_invokedGetters         = array();
+    private static $_dataProcessors = array();
+    /**
+     * @var DataProcessor
+     */
+    private        $_dataProcessor;
+    private        $_data           = array();
+    private        $_originalData   = array();
+    private        $_changedData    = array();
+    private        $_isNew          = true;
+    private        $_invokedGetters = array();
 
     /**
      * @var null|string instance model name
@@ -49,6 +55,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_tableName          = $this->_structure->getTableName();
         $this->_primaryKey         = $this->_structure->getPrimaryKey();
         $this->mergeWithData($data);
+        $this->initializeDataProcessor();
         $this->initializeAbilities();
         $this->configure();
     }
@@ -143,7 +150,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function _setRawFieldData($data) {
-        foreach($data as $field=>$value) {
+        foreach ($data as $field => $value) {
             $this->_data[$field] = $this->_originalData[$field] = $value;
         }
         return $this;
@@ -165,9 +172,52 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         }
     }
 
+    public function validate() {
+        return $this->_dataProcessor->process($this->_data)->isValid();
+    }
+
+    public function getErrors($columnName = null) {
+        return $columnName ? $this->_dataProcessor->getErrors($columnName) : $this->_dataProcessor->getErrors();
+    }
+
+    public function addProcessRule($columnName, $ruleName, $params = array()) {
+        $this->_dataProcessor->addProcessRule($columnName, $ruleName, $params);
+        return $this;
+    }
+
+    public function addValidationRule($columnName, $ruleName, $params = array()) {
+        $this->_dataProcessor->addValidationRule($columnName, $ruleName, $params);
+        return $this;
+    }
+
+    public function getValidationRules($columnNameFor = null) {
+        $rules = array();
+        foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
+            if ($columnNameFor && ($columnNameFor != $columnName)) continue;
+
+            $rules[$columnName] = array();
+            if (!empty($columnInfo['validation'])) {
+                $rules[$columnName][0] = $columnInfo['validation'];
+            }
+            if (!empty($columnInfo['process'])) {
+                $rules[$columnName][1] = $columnInfo['process'];
+            }
+            if (empty($rules[$columnName])) unset($rules[$columnName]);
+        }
+        return $rules;
+    }
+
     public function save($forceSave = false) {
         if (!$this->isChanged() && !$forceSave) return true;
         $this->_preSave();
+
+        if (!$this->validate()) return false;
+        foreach($this->_dataProcessor->getData() as $columnName => $value) {
+            if ($value != $this->_data[$columnName]) {
+                $this->_changedData[$columnName] = $value;
+            }
+        }
+
         $dataToSave = array();
         foreach ($this->_structure->getColumns() as $column => $info) {
             if (array_key_exists($column, $this->_changedData)) {
@@ -199,6 +249,13 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_isNew       = false;
         $this->_changedData = array();
         return true;
+    }
+
+    protected function initializeDataProcessor() {
+        if (empty(self::$_dataProcessors[$this->_name])) {
+            self::$_dataProcessors[$this->_name] = new DataProcessor($this->getValidationRules());
+        }
+        $this->_dataProcessor = self::$_dataProcessors[$this->_name];
     }
 
     protected function initializeAbilities() {
@@ -417,7 +474,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this;
         } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
             array_unshift($params, $this);
-            return call_user_func_array(array($methodInfo['ability'],$method), $params);
+            return call_user_func_array(array($methodInfo['ability'], $method), $params);
         } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(strtolower(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {

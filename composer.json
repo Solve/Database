@@ -16,7 +16,8 @@
         "solve/inflector": ">=1.0.3",
         "solve/storage": ">=1.0.2",
         "solve/fsservice": "*",
-        "solve/graphics": ">=1.0.2"
+        "solve/graphics": ">=1.0.2",
+        "solve/datatools": "*"
     },
     "autoload": {
         "psr-0": { "Solve\\Database\\": "" }

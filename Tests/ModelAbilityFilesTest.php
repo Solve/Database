@@ -66,7 +66,7 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
         $brand = new \Brand(array('title' => 'test'));
         $brand->save();
         $brand->attachFileFromPath('avatar', __DIR__ . '/assets/flower.jpg');
-        var_dump($brand->avatar);die();
+        $this->assertEquals('04/4/avatar/small/' . $brand->avatar['full_name'], $brand->avatar['small']['link'], 'Small avatar works');
     }
 
 

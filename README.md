@@ -18,6 +18,8 @@ ModelRelation
 SlugAbility
 TranslateAbility
 FilesAbility (+thumbnails)
+
+Validation
 ```
 
 **Need to be realized**
@@ -28,7 +30,6 @@ FilesAbility (+thumbnails)
 > DynamicAbility
 
 > Paginator
-> Validation
 
 ### Sample model structure
 **Brand:**
