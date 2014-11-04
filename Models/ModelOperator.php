@@ -126,6 +126,7 @@ class ModelOperator {
     /**
      * Change store path
      * @param $path
+     * @return $this
      */
     public function setStoragePath($path) {
         FSService::makeWritable($path);
@@ -135,7 +136,7 @@ class ModelOperator {
         FSService::makeWritable($this->_structuresPath);
         FSService::makeWritable($this->_modelsPath);
         $this->loadStructureFiles($this->_structuresPath);
-
+        return $this;
     }
 
     /**
@@ -143,7 +144,7 @@ class ModelOperator {
      * First loading "structure.yml" if it exists
      *
      * @param mixed $path Path where yaml are stored
-     * @return void
+     * @return $this
      */
     public function loadStructureFiles($path = null) {
         if (empty($path)) $path = $this->_structuresPath;
@@ -162,6 +163,7 @@ class ModelOperator {
         }
         $data              = self::fixYamlStructures($data);
         $this->_structures = $data;
+        return $this;
     }
 
 
@@ -385,6 +387,7 @@ class ModelOperator {
     public function generateAllModelClasses() {
         $models = array_keys($this->_structures);
         foreach ($models as $model) $this->generateModelClass($model);
+        return $this;
     }
 
     public function updateDBForModel($modelName, $safeUpdate = true) {

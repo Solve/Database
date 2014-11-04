@@ -39,7 +39,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             $this->_dbh = new \PDO(($dsn = self::compileDSN($options)), $options['user'], $options['pass']);
             $this->_dbh->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         } catch(\PDOException $e) {
-            throw new MysqlDBAdapterException('PDO Connection Error: ' . $e->getMessage());
+            throw new MysqlDBAdapterException('Database connection error, check access to '.$options['name']."\n".$e->getMessage());
         }
 
         try {
@@ -50,7 +50,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             if (empty($options['charset'])) $options['charset'] = 'utf8';
             $this->_dbh->query('SET NAMES '.$options['charset']);
         } catch (\PDOException $e) {
-            throw new MysqlDBAdapterException('PDO Connection Error: ' . $e->getMessage());
+            throw new MysqlDBAdapterException('Database connection error, check access to '.$options['name']."\n".$e->getMessage());
         }
 
         return true;
@@ -211,7 +211,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
     private function buildUpdate(QC $q) {
 //        var_dump($q->getQueryParams('data'));die();
         $sql = 'UPDATE ' . $this->escapeSqlName($q->getTables())
-                .' SET '.$this->processData($q->getQueryParams('data'), ', ');
+            .' SET '.$this->processData($q->getQueryParams('data'), ', ');
         $c = $q->getCriteria();
         if (!empty($c)) {
             $sql .= ' WHERE ' . $this->processCriteria($c);

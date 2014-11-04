@@ -19,7 +19,7 @@ namespace Solve\Database\Exceptions;
  */
 class MysqlDBAdapterException extends \Exception {
     public function __construct($message = "", $code = 0, \Exception $previous = null) {
-        $message = 'MysqlDBAdapter exception: '.$message;
+        $message = 'MysqlDBAdapter - '.$message;
         parent::__construct($message, $code, $previous);
     }
 
