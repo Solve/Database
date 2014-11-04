@@ -33,9 +33,32 @@ class DatabaseService {
     public static function getAdapter($adapterName = 'MysqlDBAdapter') {
         if (empty(self::$_adapters[$adapterName])) {
             $adapterClass = '\Solve\Database\Adapters\\' . $adapterName;
-            self::$_adapters[$adapterName] = new $adapterClass(self::$_profiles[self::$_activeProfileName]);
+            self::$_adapters[$adapterName] = new $adapterClass(self::getActiveProfileConfig());
         }
         return self::$_adapters[$adapterName];
     }
+
+    public static function getActiveProfileConfig() {
+        if (empty(self::$_activeProfileName) || empty(self::$_profiles[self::$_activeProfileName])) {
+            throw new \Exception('Profile for database is not defined: '. (self::$_activeProfileName ? self::$_activeProfileName : '(empty)'));
+        }
+        return self::$_profiles[self::$_activeProfileName];
+    }
+
+    /**
+     * @return null
+     */
+    public static function getActiveProfileName() {
+        return self::$_activeProfileName;
+    }
+
+    /**
+     * @param null $activeProfileName
+     */
+    public static function setActiveProfileName($activeProfileName) {
+        self::$_activeProfileName = $activeProfileName;
+    }
+
+
 
 } 
