@@ -8,6 +8,7 @@
  */
 
 namespace Solve\Database;
+
 use Solve\Database\Adapters\MysqlDBAdapter;
 
 
@@ -31,7 +32,7 @@ use Solve\Database\Adapters\MysqlDBAdapter;
  * @method QC groupBy($param) group by query param
  * @method QC orderBy($param) order by query param
  *
- * @method QC use($field) use field as a value
+ * @method QC use ($field) use field as a value
  * @method QC indexBy($field) use field as a index
  * @method QC foldBy($field) use field for folding
  *
@@ -47,67 +48,66 @@ use Solve\Database\Adapters\MysqlDBAdapter;
  */
 class QC {
 
-    const TYPE_SELECT                   = 'select';
-    const TYPE_INSERT                   = 'insert';
-    const TYPE_DELETE                   = 'delete';
-    const TYPE_UPDATE                   = 'update';
-    const TYPE_REPLACE                  = 'replace';
+    const TYPE_SELECT  = 'select';
+    const TYPE_INSERT  = 'insert';
+    const TYPE_DELETE  = 'delete';
+    const TYPE_UPDATE  = 'update';
+    const TYPE_REPLACE = 'replace';
 
-    private static $_availableMethods   = array(
+    private static $_availableMethods = array(
 
         // criteria group
-        'and'    => array(
-            'group'     => 'criteria'
+        'and'       => array(
+            'group' => 'criteria'
         ),
-        'or'    => array(
-            'group'     => 'criteria'
+        'or'        => array(
+            'group' => 'criteria'
         ),
-        'where' => array(
-            'group'     => 'criteria',
-            'method'    => 'and'
+        'where'     => array(
+            'group'  => 'criteria',
+            'method' => 'and'
         ),
-
 
 
         // tables group
-        'from'  => array(
+        'from'      => array(
             'group' => 'tables'
         ),
 
-        'join'  => array(
+        'join'      => array(
             'group' => 'joins'
         ),
         'leftJoin'  => array(
             'group' => 'joins'
         ),
-        'rightJoin'  => array(
+        'rightJoin' => array(
             'group' => 'joins'
         ),
-        'innerJoin'  => array(
+        'innerJoin' => array(
             'group' => 'joins'
         ),
-        'outerJoin'  => array(
+        'outerJoin' => array(
             'group' => 'joins'
         ),
 
 
         // modifiers group
-        'limit' => array(
+        'limit'     => array(
             'group' => 'modifiers'
         ),
-        'orderBy' => array(
+        'orderBy'   => array(
             'group' => 'modifiers'
         ),
-        'groupBy' => array(
+        'groupBy'   => array(
             'group' => 'modifiers'
         ),
-        'use'   => array(
+        'use'       => array(
             'group' => 'modifiers'
         ),
         'indexBy'   => array(
             'group' => 'modifiers'
         ),
-        'foldBy'   => array(
+        'foldBy'    => array(
             'group' => 'modifiers'
         ),
         'one'       => array(
@@ -119,51 +119,51 @@ class QC {
 
         //system group
         'delete'    => array(
-            'group' => 'system',
-            'params'=> 'where'
+            'group'  => 'system',
+            'params' => 'where'
         ),
         'select'    => array(
-            'group' => 'system',
-            'params'=> 'fields'
+            'group'  => 'system',
+            'params' => 'fields'
         ),
         'update'    => array(
-            'group' => 'system',
-            'params'=> 'data'
+            'group'  => 'system',
+            'params' => 'data'
         ),
         'insert'    => array(
-            'group' => 'system',
-            'params'=> 'data'
+            'group'  => 'system',
+            'params' => 'data'
         ),
-        'replace'    => array(
-            'group' => 'system',
-            'params'=> 'data'
+        'replace'   => array(
+            'group'  => 'system',
+            'params' => 'data'
         ),
 
     );
 
-    private $_params                    = array(
-        'criteria'      => array(),
-        'fields'        => array(),
-        'data'          => array(),
-        'joins'         => array(),
-        'modifiers'     => array(),
-        'tables'        => array(),
+    private $_params = array(
+        'criteria'  => array(),
+        'fields'    => array(),
+        'data'      => array(),
+        'joins'     => array(),
+        'modifiers' => array(),
+        'tables'    => array(),
     );
 
-    private $_type                      = self::TYPE_SELECT;
-    private $_fields                    = array();
-    private $_data                      = array();
+    private $_type   = self::TYPE_SELECT;
+    private $_fields = array();
+    private $_data   = array();
 
-    private $_isBuilded                 = false;
-    private $_buildedSQL                = '';
+    private $_isBuilded  = false;
+    private $_buildedSQL = '';
     /**
      * @var MysqlDBAdapter
      */
-    private static $_staticAdapter            = null;
+    private static $_staticAdapter = null;
     /**
      * @var MysqlDBAdapter
      */
-    private $_adapter                         = null;
+    private $_adapter = null;
 
     public function __construct($tables = null) {
         if ($tables) {
@@ -206,7 +206,7 @@ class QC {
 
     public function getTables() {
         $tables = array();
-        foreach($this->_params['tables'] as $item) {
+        foreach ($this->_params['tables'] as $item) {
             $tables = array_merge($tables, is_array($item['params'][0]) ? $item['params'][0] : $item['params']);
         }
 
@@ -215,7 +215,7 @@ class QC {
 
     public function getJoins() {
         $joins = array();
-        foreach($this->_params['joins'] as $join) {
+        foreach ($this->_params['joins'] as $join) {
             $type = $join['method'] == 'join' ? 'join' : strtolower(substr($join['method'], 0, -4));
             if (empty($joins[$type])) $joins[$type] = array();
             $joins[$type][] = $join['params'];
@@ -227,9 +227,9 @@ class QC {
         return $this->_params['modifiers'];
     }
 
-    public function getModifier($modifier) {
-        if (array_key_exists($modifier, $this->_params['modifiers'])) {
-            return $this->_params['modifiers'][$modifier];
+    public function getModifier($modifierName) {
+        if (array_key_exists($modifierName, $this->_params['modifiers'])) {
+            return $this->_params['modifiers'][$modifierName];
         } else {
             return null;
         }
@@ -237,7 +237,7 @@ class QC {
 
     public function isEmpty() {
         $countParams = 0;
-        foreach($this->_params as $item) $countParams += count($item);
+        foreach ($this->_params as $item) $countParams += count($item);
         return $countParams == 0;
     }
 
@@ -253,6 +253,7 @@ class QC {
 
         return $this->_buildedSQL;
     }
+
     public function execute() {
         $result = $this->_adapter->executeQuery($this);
         if ($this->_type == QC::TYPE_SELECT) {
@@ -275,20 +276,20 @@ class QC {
     }
 
     public static function executeArrayOfSQL($array) {
-        foreach($array as $sql) {
+        foreach ($array as $sql) {
             self::executeSQL($sql);
         }
     }
 
     public function processRows($rows) {
         if (empty($rows)) return array();
-        if (($indexBy   = $this->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy =  $indexBy[0];
-        if (($foldBy    = $this->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy =  $foldBy[0];
-        $use            = $this->getModifier('use');
+        if (($indexBy = $this->getModifier('indexBy')) && array_key_exists($indexBy[0], $rows[0])) $indexBy = $indexBy[0];
+        if (($foldBy = $this->getModifier('foldBy')) && array_key_exists($foldBy[0], $rows[0])) $foldBy = $foldBy[0];
+        $use   = $this->getModifier('use');
         $index = -1;
-        $data =  array();
+        $data  = array();
 
-        foreach($rows as $row) {
+        foreach ($rows as $row) {
             $item = $row;
             if ($use) $item = array_key_exists($use[0], $row) ? $row[$use[0]] : null;
             if ($indexBy) {
@@ -339,6 +340,15 @@ class QC {
         return $this;
     }
 
+    public function importQC(QC $qc) {
+        if ($modifiers = $qc->getModifiers()) {
+            foreach ($modifiers as $modifierName => $params) {
+                $this->_params['modifiers'][$modifierName] = $params;
+            }
+        }
+        return $this;
+    }
+
     /**
      * All magic goes here.
      * Each method has it's own group
@@ -364,8 +374,8 @@ class QC {
                     }
                 } else {
                     $this->_params[$info['group']][] = array(
-                        'method'    => empty($info['method']) ? $method : $info['method'],
-                        'params'    => $params
+                        'method' => empty($info['method']) ? $method : $info['method'],
+                        'params' => $params
                     );
                 }
             }

@@ -22,9 +22,10 @@ class ModelCollectionTest extends SolveDatabaseTestBasic {
         /**
          * @var ModelCollection $products
          */
-        $products = \Product::loadList();
+        $products = \Product::loadList(QC::create()->limit(1, 1));
         $this->assertInstanceOf('Solve\Database\Models\ModelCollection', $products, 'Instance of model collection created');
-
+        var_dump($products->count());die();
+        
         /**
          * @var ModelCollection $categories
          */

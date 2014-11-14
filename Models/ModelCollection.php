@@ -81,6 +81,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     protected function _loadList($criteria) {
         /**
          * @var QC $criteria
+         * @var QC $qc
          */
         if (is_object($criteria) && $criteria->getModifier('rawSelect')) {
             $qc = $criteria;
@@ -88,6 +89,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
             $qc = QC::create($this->_tableName);
             if (!empty($criteria)) {
                 $criteria = $this->_model->_processCriteria($criteria);
+                $qc->importQC($criteria);
                 $qc->and($criteria);
             }
         }

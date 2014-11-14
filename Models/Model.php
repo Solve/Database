@@ -100,6 +100,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
      * @return Model
      */
     protected function _loadOne($criteria) {
+        /**
+         * @var QC $criteria
+         */
         if (is_object($criteria) && $criteria->getModifier('rawSelect')) {
             $qc = $criteria;
         } else {
@@ -107,6 +110,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
             $qc = QC::create($this->_tableName);
             if (!empty($criteria)) {
+                $qc->importQC($criteria);
                 $qc->and($criteria);
             }
         }
