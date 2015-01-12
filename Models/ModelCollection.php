@@ -26,20 +26,20 @@ use Solve\Utils\Inflector;
  */
 class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
 
-    private $_data   = array();
-    private $_pk_map = array();
+    protected $_data   = array();
+    protected $_pk_map = array();
     /**
      * @var Model
      */
-    private $_model;
+    protected $_model;
     /**
      * @var ModelStructure
      */
-    private $_structure;
-    private $_modelClass;
-    private $_tableName;
-    private $_primaryKey;
-    private $_modelsMethods = array(
+    protected $_structure;
+    protected $_modelClass;
+    protected $_tableName;
+    protected $_primaryKey;
+    protected $_modelsMethods = array(
         '_setRawFieldValue', '_setRawFieldData'
     );
 
