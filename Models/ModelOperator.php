@@ -342,7 +342,7 @@ class ModelOperator {
         }
         if (!empty($this->_structures[$className]['abilities'])) {
             foreach ($this->_structures[$className]['abilities'] as $abilityName => $props) {
-                $abilityClass = 'Solve\Database\Models\Abilities\\' . $abilityName . 'Ability';
+                $abilityClass = 'Solve\Database\Models\Abilities\\' . ucfirst($abilityName) . 'Ability';
                 $rf           = new \ReflectionClass($abilityClass);
                 if ($comment = $rf->getDocComment()) {
                     preg_match_all('#\* @publish (.*)#i', $comment, $methods);
