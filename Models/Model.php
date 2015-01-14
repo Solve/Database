@@ -110,7 +110,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
             $qc = QC::create($this->_tableName);
             if (!empty($criteria)) {
-                $qc->importQC($criteria);
+                if (is_object($criteria)) {
+                    $qc->importQC($criteria);
+                }
                 $qc->and($criteria);
             }
         }
@@ -365,6 +367,14 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this->_isNew;
     }
 
+    public function isEmpty() {
+        return empty($this->_data);
+    }
+
+    public function isExists(){
+        return !empty($this->_data) && !empty($this->_data[$this->_primaryKey]);
+    }
+
     public function isChanged() {
         return count($this->_changedData) > 0;
     }
@@ -497,7 +507,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function getID() {
-        return $this->_data[$this->_primaryKey];
+        return array_key_exists($this->_primaryKey, $this->_data) ? $this->_data[$this->_primaryKey] : null;
     }
 
     public function getInternalObjectHash() {
