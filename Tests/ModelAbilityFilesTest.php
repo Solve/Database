@@ -18,6 +18,16 @@ use Solve\Utils\FSService;
 
 class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
 
+    public function testFirst() {
+        $brand = new \Brand(array('title' => 'Apple'));
+        $brand->save();
+        $brand = \Brand::loadOne(1);
+        $brand->attachFileFromPath('logo', __DIR__ . '/../README.md');
+
+        $brand = \Brand::loadOne(1)->loadFiles('logo');
+        var_dump($brand->logo);die();
+
+    }
 
     public function testBasic() {
         $brand = new \Brand(array('title' => 'Apple'));
@@ -109,8 +119,8 @@ class ModelAbilityFilesTest extends SolveDatabaseTestBasic {
     }
 
     public static function tearDownAfterClass() {
-//        parent::tearDownAfterClass();
-//        FSService::unlinkRecursive(__DIR__ . '/upload');
+        parent::tearDownAfterClass();
+        FSService::unlinkRecursive(__DIR__ . '/upload');
     }
 
 }

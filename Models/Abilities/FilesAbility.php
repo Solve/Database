@@ -26,6 +26,7 @@ use Solve\Utils\Inflector;
  * @publish attachFilesFromArray($filesArray)
  * @publish setFieldNameForAlias($alias, $fieldName)
  * @publish skipFileAliasForSave($alias)
+ * @publish loadFiles($alias)
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
@@ -40,6 +41,7 @@ class FilesAbility extends BaseModelAbility {
 
     public function initialize() {
         $this->_storePath = self::$_baseStoreLocation . $this->_modelName . '/' .
+        $this->publishMethod('loadFiles');
         $this->publishMethod('deleteFile');
         $this->publishMethod('attachFileFromPath');
         $this->publishMethod('attachFilesFromArray');
@@ -154,6 +156,28 @@ class FilesAbility extends BaseModelAbility {
         $caller->_setRawFieldValue($alias, array());
     }
 
+    /**
+     * @param Model|ModelCollection $caller
+     * @param $alias
+     * @return Model|ModelCollection $caller
+     */
+    public function loadFiles($caller, $alias = null) {
+        $aliases = $alias ? explode(',', $alias) : array_keys($this->_config);
+        if ($caller instanceof Model) {
+            $callers = array($caller);
+        } else {
+            $callers = $caller;
+        }
+
+        foreach($aliases as $alias) {
+            foreach($callers as $oneObject) {
+                $this->_loadAliasForObject($oneObject, $alias);
+            }
+        }
+        return $caller;
+    }
+
+
     private function _getAliasFolder($caller, $alias) {
         return self::$_baseStoreLocation . $this->_getObjectFolder($caller) . '/' . $alias;
     }
@@ -181,9 +205,7 @@ class FilesAbility extends BaseModelAbility {
 
         if (substr($method, 0, 3) == 'get') {
             $alias = Inflector::underscore(substr($method, 3));
-            if (array_key_exists($alias, $this->_config)) {
-                $caller->_setRawFieldValue($alias, $this->getModelValue($this->_getAliasFolder($caller, $alias) . '/', $this->_config[$alias]));
-            }
+            $this->_loadAliasForObject($caller, $alias);
             return true;
         }
         throw new \Exception('Called undefined method in FilesAbility '.$method);
@@ -252,6 +274,16 @@ class FilesAbility extends BaseModelAbility {
         $hash = $caller->getInternalObjectHash();
         if (empty($this->_aliasedToSkip[$hash])) $this->_aliasedToSkip[$hash] = array();
         $this->_aliasedToSkip[$hash][$alias] = true;
+    }
+
+    /**
+     * @param $caller Model
+     * @param $alias
+     */
+    protected function _loadAliasForObject($caller, $alias) {
+        if (array_key_exists($alias, $this->_config)) {
+            $caller->_setRawFieldValue($alias, $this->getModelValue($this->_getAliasFolder($caller, $alias) . '/', $this->_config[$alias]));
+        }
     }
 
 } 
