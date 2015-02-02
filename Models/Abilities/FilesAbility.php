@@ -40,7 +40,7 @@ class FilesAbility extends BaseModelAbility {
     private $_aliasedToSkip = array();
 
     public function initialize() {
-        $this->_storePath = self::$_baseStoreLocation . $this->_modelName . '/' .
+        $this->_storePath = self::$_baseStoreLocation . $this->_modelName . '/';
         $this->publishMethod('loadFiles');
         $this->publishMethod('deleteFile');
         $this->publishMethod('attachFileFromPath');
