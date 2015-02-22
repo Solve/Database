@@ -423,7 +423,7 @@ class DBOperator {
             'local_table'   => $info['manyTable'],
             'foreign_table' => $info['localTable'],
             'local_field'   => 'id_'.$localName,
-            'foreign_field' => $info['localKey']
+            'foreign_field' => $info['foreignKey']
         );
         $structure['constraints'][$this->generateForeignKeyName($foreignKeysInfo)] = $foreignKeysInfo;
         $foreignKeysInfo = array(
@@ -437,7 +437,14 @@ class DBOperator {
         $diffs = $this->getDifferenceSQL($structure, $info['manyTable']);
         if ($diffs['result'] === true) {
             QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
-            if (!empty($diffs['sql']['ADD'])) QC::executeArrayOfSQL($diffs['sql']['ADD']);
+            if (!empty($diffs['sql']['ADD'])) {
+                try {
+                    var_dump($structure['constraints']);die();
+                    QC::executeArrayOfSQL($diffs['sql']['ADD']);
+                } catch(\Exception $e) {
+                    var_dump($e->getMessage());die();
+                }
+            }
         }
         return $diffs['result'];
 
