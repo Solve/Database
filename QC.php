@@ -196,6 +196,12 @@ class QC {
         return new QC($tables);
     }
 
+    public static function createFromCondition($params) {
+        $qc = new QC();
+        $qc->and($params);
+        return $qc;
+    }
+
     public function getCriteria() {
         return $this->_params['criteria'];
     }

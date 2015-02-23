@@ -89,6 +89,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
             $qc = QC::create($this->_tableName);
             if (!empty($criteria)) {
                 $criteria = $this->_model->_processCriteria($criteria);
+                if (is_array($criteria)) $criteria = QC::createFromCondition($criteria);
                 $qc->importQC($criteria);
                 $qc->and($criteria);
             }

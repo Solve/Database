@@ -26,7 +26,7 @@ use Solve\Utils\Inflector;
  * @publish attachFilesFromArray($filesArray)
  * @publish setFieldNameForAlias($alias, $fieldName)
  * @publish skipFileAliasForSave($alias)
- * @publish loadFiles($alias)
+ * @publish loadFiles($alias = null)
  *
  * @version 1.0
  * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>

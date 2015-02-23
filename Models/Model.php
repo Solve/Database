@@ -325,6 +325,15 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($abilities as $abilityName => $abilityInfo) {
             ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->postLoad($this);
         }
+
+        $relations = $this->_structure->getRelations();
+        if (empty($relations)) $relations = array();
+        foreach($relations as $relationName => $relationInfo) {
+            if (!empty($relationInfo['autoload'])) {
+                $this->loadRelated($relationName);
+            }
+        }
+
         $this->postLoad();
     }
 
