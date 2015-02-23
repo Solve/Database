@@ -439,7 +439,6 @@ class DBOperator {
             QC::executeSQL('SET FOREIGN_KEY_CHECKS = 0');
             if (!empty($diffs['sql']['ADD'])) {
                 try {
-                    var_dump($structure['constraints']);die();
                     QC::executeArrayOfSQL($diffs['sql']['ADD']);
                 } catch(\Exception $e) {
                     var_dump($e->getMessage());die();
