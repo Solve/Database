@@ -79,10 +79,10 @@ class FilesAbility extends BaseModelAbility {
      * @param Model|ModelCollection $caller
      * @param $alias
      * @param $filePath
-     * @param array $params
+     * @param array $sourceFileInfo
      * @throws \Exception
      */
-    public function attachFileFromPath($caller, $alias, $filePath, $params = array()) {
+    public function attachFileFromPath($caller, $alias, $filePath, $sourceFileInfo = array()) {
         $this->requireModeSingle($caller);
         if (!is_file($filePath)) throw new \Exception('File specified is not readable');
         if (!array_key_exists($alias, $this->_config)) throw new \Exception('There is no such alias '.$alias);
@@ -90,7 +90,9 @@ class FilesAbility extends BaseModelAbility {
 
         $storeLocation = $this->_getAliasFolder($caller, $alias) . '/';
         FSService::makeWritable($storeLocation);
-        $sourceFileInfo = FSService::getFileInfo($filePath);
+        if (empty($sourceFileInfo)) {
+            $sourceFileInfo = FSService::getFileInfo($filePath);
+        }
 
         $newFileExtension = $sourceFileInfo['ext'];
         $newFileName = md5($sourceFileInfo['name'] . time());
@@ -139,7 +141,7 @@ class FilesAbility extends BaseModelAbility {
             if (isset($filesArray[$fieldName]) && !empty($filesArray[$fieldName]['name'])) {
                 $workArray = self::reformatFilesArray($filesArray[$fieldName]);
                 foreach($workArray as $item) {
-                    $this->attachFileFromPath($caller, $aliasName, $item['tmp_name']);
+                    $this->attachFileFromPath($caller, $aliasName, $item['tmp_name'], FSService::getFileInfoFromString($item['name']));
                 }
             }
         }
