@@ -183,9 +183,10 @@ class FilesAbility extends BaseModelAbility {
     }
 
     public function getModelValue($storagePath, $aliasInfo) {
-        $filesToInfo = GLOB($storagePath . '*.*');
+        $filesToInfo = GLOB($storagePath . '*', GLOB_MARK);
         $value = array();
         foreach($filesToInfo as $file) {
+            if (is_dir($file)) continue;
             $fileInfo = FSService::getFileInfo($file);
             if (!empty($aliasInfo['sizes'])) {
                 foreach($aliasInfo['sizes'] as $sizeAlias => $sizeInfo) {
@@ -222,7 +223,7 @@ class FilesAbility extends BaseModelAbility {
         } else {
             $int = $id > 9 ? $id[0] . $id[1] : '0' . $id;
         }
-        return $int . '/' . (int)$id % 100;
+        return Inflector::pluralize(Inflector::underscore($this->_modelName)) . '/' . $int . '/' . (int)$id % 100;
 
     }
 
