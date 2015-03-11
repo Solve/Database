@@ -51,7 +51,7 @@ class ModelAbilitySlugTest extends SolveDatabaseTestBasic {
         $mo->updateDBForAllModels();
     }
 
-    public static function tearDownAfterClass() {}
+//    public static function tearDownAfterClass() {}
 
 }
  

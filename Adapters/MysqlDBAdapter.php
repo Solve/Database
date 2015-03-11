@@ -39,7 +39,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             $this->_dbh = new \PDO(($dsn = self::compileDSN($options)), $options['user'], $options['pass']);
             $this->_dbh->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         } catch(\PDOException $e) {
-            throw new MysqlDBAdapterException('Database connection error, check access to '.$options['name']."\n".$e->getMessage());
+            throw new MysqlDBAdapterException('Database connection error, check access to '.(empty($options['name']) ? "(empty profile)" : $options['name']) . "\n".$e->getMessage());
         }
 
         try {
