@@ -18,6 +18,7 @@ require_once dirname(__FILE__) . '/../Exceptions/MysqlDBAdapterException.php';
  * Class MysqlDBAdapter
  * @package Solve\Database\Adapters
  *
+ * @changed
  * Class MysqlDBAdapter is used to ...
  *
  * @version 1.0
@@ -310,7 +311,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             } else {
                 $savedParams = $this->_pregParametricParams;
                 $this->_pregParametricParams = $condition;
-                $sql = preg_replace_callback('#:[dsbna]#', array($this, 'onPregParameterCallback'), $condition[0]);
+                $sql = preg_replace_callback('#:[dsbna\?]#', array($this, 'onPregParameterCallback'), $condition[0]);
                 $this->_pregParametricParams = $savedParams;
                 $this->_pregParametricCounter = 1;
             }
@@ -341,6 +342,8 @@ class MysqlDBAdapter extends BaseDBAdapter {
                 return intval($this->_pregParametricParams[$this->_pregParametricCounter++]);
             } elseif ($params[0] == ':s') {
                 return $this->escapeOne($this->_pregParametricParams[$this->_pregParametricCounter++], 'string');
+            } elseif ($params[0] == ':?') {
+                return substr($this->escapeOne($this->_pregParametricParams[$this->_pregParametricCounter++], 'string'), 1, -1);
             }
         } else {
             throw new MysqlDBAdapterException('Invalid parameters count for parametric query');
@@ -357,6 +360,9 @@ class MysqlDBAdapter extends BaseDBAdapter {
     protected function escapeOne($value, $type = false) {
         if ($type === false) {
             $type = gettype($value);
+        }
+        if (strpos($value, '#sql#') !== false) {
+            return substr($value, 5);
         }
         if (in_array($type, array('integer'))) {
             return $value;
