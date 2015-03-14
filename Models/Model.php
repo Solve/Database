@@ -228,6 +228,8 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($this->_structure->getColumns() as $column => $info) {
             if (array_key_exists($column, $this->_changedData)) {
                 $dataToSave[$column] = $this->_changedData[$column];
+            } elseif (array_key_exists('default', $info) && !array_key_exists($column, $this->_data)) {
+                $dataToSave[$column] = $info['default'];
             } elseif ($forceSave) {
                 if ($column == 'id') continue;
                 $dataToSave[$column] = array_key_exists($column, $this->_data) ? $this->_data[$column] : null;
