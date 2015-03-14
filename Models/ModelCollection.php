@@ -187,6 +187,22 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $res;
     }
 
+    public function findObjectWithProperties($properties) {
+        foreach($this as $object) {
+            $isOk = true;
+            foreach($properties as $key=>$value) {
+                if ($object[$key] !== $value) {
+                    $isOk = false;
+                    break;
+                }
+            }
+            if ($isOk) {
+                return $object;
+            }
+        }
+        return null;
+    }
+
     /**
      * @param $id
      * @return Model
