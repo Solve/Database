@@ -174,7 +174,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
          * @var Model $item
          */
         foreach ($this->_data as $item) {
-            $result[$fieldName] = $item->getArray();
+            $result[$item[$fieldName]] = $item->getArray();
         }
         return $result;
     }
