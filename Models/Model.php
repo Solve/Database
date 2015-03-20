@@ -398,6 +398,22 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $res;
     }
 
+    private function getCastedValue($value, $column) {
+        $info = $this->_structure->getColumnInfo($column);
+        if (strpos($info['type'], 'int') !== false) {
+            return intval($value);
+        }
+        return $value;
+    }
+
+    public function getArrayCasted() {
+        $res = array();
+        foreach ($this->_data as $key => $value) {
+            $res[$key] = is_object($value) && ($value instanceof Model || $value instanceof ModelCollection) ? $value->getArray() : $this->getCastedValue($value, $key);
+        }
+        return $res;
+    }
+
     public function getChangedData($field = null) {
         if (!empty($field)) {
             return array_key_exists($field, $this->_changedData) ? $this->_changedData[$field] : null;

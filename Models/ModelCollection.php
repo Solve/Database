@@ -168,6 +168,17 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $result;
     }
 
+    public function getArrayCasted() {
+        $result = array();
+        /**
+         * @var Model $item
+         */
+        foreach ($this->_data as $item) {
+            $result[] = $item->getArrayCasted();
+        }
+        return $result;
+    }
+
     public function getArrayIndexedBy($fieldName) {
         $result = array();
         /**
