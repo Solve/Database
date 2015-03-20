@@ -499,9 +499,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this;
         } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
             array_unshift($params, $this);
-            return call_user_func_array(array($methodInfo['ability'], $method), $params);
-        } elseif (substr($method, 0, 3) == 'get') {
-            return $this->offsetGet(strtolower(substr($method, 3)));
+            return $this->offsetGet(Inflector::underscore(substr($method, 3)));
+        } elseif (substr($method, 0, 3) == 'set') {
+            $this->offsetSet(Inflector::underscore(substr($method, 3)), $params[0]);
         } elseif (substr($method, 0, 3) == 'set') {
             $this->offsetSet(strtolower(substr($method, 3)), $params[0]);
             return $this;
