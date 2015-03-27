@@ -311,7 +311,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
             } else {
                 $savedParams = $this->_pregParametricParams;
                 $this->_pregParametricParams = $condition;
-                $sql = preg_replace_callback('#:[dsbna\?]#', array($this, 'onPregParameterCallback'), $condition[0]);
+                $sql = preg_replace_callback('#:[dfsbna\?]#', array($this, 'onPregParameterCallback'), $condition[0]);
                 $this->_pregParametricParams = $savedParams;
                 $this->_pregParametricCounter = 1;
             }
@@ -340,6 +340,8 @@ class MysqlDBAdapter extends BaseDBAdapter {
         if (array_key_exists($this->_pregParametricCounter, $this->_pregParametricParams)) {
             if ($params[0] == ':d') {
                 return intval($this->_pregParametricParams[$this->_pregParametricCounter++]);
+            } elseif ($params[0] == ':f') {
+                return floatval($this->_pregParametricParams[$this->_pregParametricCounter++]);
             } elseif ($params[0] == ':s') {
                 return $this->escapeOne($this->_pregParametricParams[$this->_pregParametricCounter++], 'string');
             } elseif ($params[0] == ':?') {
