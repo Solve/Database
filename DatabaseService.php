@@ -8,6 +8,8 @@
  */
 
 namespace Solve\Database;
+use Solve\Storage\ArrayStorage;
+
 /**
  * Class DatabaseService
  * @package Solve\Database
@@ -24,6 +26,11 @@ class DatabaseService {
     private static $_profiles           = array();
 
     private static $_activeProfileName  = null;
+
+    /**
+     * @var ArrayStorage
+     */
+    private static $_config;
 
     public static function configProfile($options, $profileName = 'default') {
         if (empty(self::$_activeProfileName)) self::$_activeProfileName = $profileName;
@@ -59,6 +66,29 @@ class DatabaseService {
         self::$_activeProfileName = $activeProfileName;
     }
 
+    /**
+     * @param $data
+     * @changed
+     * @param null $deepKey
+     */
+    public static function setConfig($data, $deepKey = null) {
+        if (empty(self::$_config)) {
+            self::$_config = new ArrayStorage();
+        }
+        if ($deepKey) {
+            self::$_config->setDeepValue($deepKey, $data);
+        } else {
+            self::$_config->setData($data);
+        }
+    }
 
+    public static function getConfig($deepKey = null, $defaultValue = null) {
+        if (empty(self::$_config)) {
+            return $defaultValue;
+        }
+        if ($deepKey) {
+            return self::$_config->getDeepValue($deepKey, $defaultValue);
+        }
+    }
 
 } 

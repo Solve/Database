@@ -9,6 +9,7 @@
 
 namespace Solve\Database\Models;
 require_once __DIR__ . '/../Models/ModelCollection.php';
+use Solve\Database\DatabaseService;
 use Solve\Database\QC;
 use Solve\DataTools\DataProcessor;
 use Solve\Utils\Inflector;
@@ -91,7 +92,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $object                    = self::getModel(get_called_class());
         $customCollectionClassName = Inflector::pluralize($object->_name) . 'Collection';
         $collectionClass           = class_exists($customCollectionClassName) ? $customCollectionClassName : '\\Solve\\Database\\Models\\ModelCollection';
-        return call_user_func(array($collectionClass, 'loadList'), $criteria, $object);
+        return call_user_func(array($collectionClass, 'loadList',), $criteria, $object);
 
     }
 
@@ -119,12 +120,16 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_preLoad($qc);
         $this->setOriginalData($qc->executeOne());
         $this->_postLoad();
-        return $this;
+        if ($this->isEmpty()) {
+            return DatabaseService::getConfig('loadOneFails') == 'model' ? $this : null;
+        } else {
+            return $this;
+        }
     }
 
     public function _processCriteria($criteria) {
         if (is_scalar($criteria)) {
-            $criteria = array($this->_primaryKey => $criteria);
+            $criteria = array($this->_primaryKey => $criteria,);
         }
         if (is_array($criteria)) {
             $newCriteria = array();
@@ -235,22 +240,21 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
                 $dataToSave[$column] = array_key_exists($column, $this->_data) ? $this->_data[$column] : null;
             }
         }
-
         $qc = QC::create($this->_tableName);
         if ($this->_isNew) {
             if (empty($dataToSave)) {
-                $dataToSave = array($this->_primaryKey => null);
+                $dataToSave = array($this->_primaryKey => null,);
             }
             $this->{$this->_primaryKey} = $qc->insert($dataToSave)->execute();
         } elseif (count($dataToSave)) {
-            $qc->update($dataToSave)->where(array($this->_primaryKey => $this->{$this->_primaryKey}))->execute();
+            $qc->update($dataToSave)->where(array($this->_primaryKey => $this->{$this->_primaryKey},))->execute();
         }
 
         /**
          * Reloading data from DB for the newly created object
          */
         if ($this->_isNew) {
-            $data = QC::create($this->_tableName)->where(array($this->_tableName . '.' . $this->_primaryKey => $this->{$this->_primaryKey}))->executeOne();
+            $data = QC::create($this->_tableName)->where(array($this->_tableName . '.' . $this->_primaryKey => $this->{$this->_primaryKey},))->executeOne();
             $this->setOriginalData($data);
         }
         $this->_postSave();
@@ -292,7 +296,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_preDelete();
 
         unset($this);
-        return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID()))->execute();
+        return QC::create($this->_tableName)->delete(array($this->_primaryKey => $this->getID(),))->execute();
     }
 
     protected function preLoad($qc) {
@@ -313,7 +317,6 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     protected function _preLoad(QC $qc) {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
-
         foreach ($abilities as $abilityName => $abilityInfo) {
             ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->preLoad($this, $qc);
         }
@@ -494,7 +497,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
             if (empty($params)) $params = array();
             array_unshift($params, $this);
-            call_user_func_array(array($methodInfo['ability'], $method), $params);
+            call_user_func_array(array($methodInfo['ability'], $method,), $params);
         }
         if (array_key_exists($key, $this->_data)) {
             return $this->_data[$key];

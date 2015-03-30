@@ -110,10 +110,21 @@ class ModelStructure {
         return $this;
     }
 
+    public function updateAbilityInfo($name, $info) {
+        $currentInfo = $this->getAbilityInfo($name);
+        foreach($info as $key=>$value) {
+            $currentInfo[$key] = $value;
+        }
+        $this->_data->setDeepValue('abilities/' . $name, $currentInfo);
+        return $this;
+    }
+
     public function saveStructure() {
         ModelOperator::getInstance()->setStructureForModel($this->_modelName, $this->_data->getArray());
         ModelOperator::getInstance()->saveModelStructure($this->_modelName);
         $this->setupAddedAbilities();
+        ModelOperator::getInstance()->setStructureForModel($this->_modelName, $this->_data->getArray());
+        ModelOperator::getInstance()->saveModelStructure($this->_modelName);
         return $this;
     }
 

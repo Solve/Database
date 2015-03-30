@@ -51,10 +51,10 @@ abstract class BaseModelAbility {
 
     public static function getInstanceForModel($modelName) {
         $abilityClass = get_called_class();
-        if (empty(self::$_modelInstances[$modelName])) {
-            self::$_modelInstances[$modelName] = new $abilityClass($modelName);
+        if (empty(self::$_modelInstances[$modelName][$abilityClass])) {
+            self::$_modelInstances[$modelName][$abilityClass] = new $abilityClass($modelName);
         }
-        return self::$_modelInstances[$modelName];
+        return self::$_modelInstances[$modelName][$abilityClass];
     }
 
     /**

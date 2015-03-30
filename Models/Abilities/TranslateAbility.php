@@ -58,6 +58,7 @@ class TranslateAbility extends BaseModelAbility {
         $tableStructure['columns']                = array_merge($tableStructure['columns'], $columnsToTranslate);
 
         DBOperator::getInstance()->createTable($this->_tableName, $tableStructure);
+        $this->_modelStructure->updateAbilityInfo('translate', $this->_config);
         return $this;
     }
 
@@ -100,10 +101,10 @@ class TranslateAbility extends BaseModelAbility {
     public function getTranslationForLanguage($caller, $languageId) {
         $ids  = ModelOperator::getIDs($caller);
         $data = QC::create($this->_modelStructure->getTableName())
-                  ->where(array($this->_modelStructure->getTableName() . '.' . $this->_modelStructure->getPrimaryKey() => $ids))
-                  ->indexBy($this->_modelStructure->getPrimaryKey())
-                  ->leftJoin($this->_tableName, $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey . ' AND ' . $this->_tableName . '.id_language = ' . $languageId)
-                  ->execute();
+            ->where(array($this->_modelStructure->getTableName() . '.' . $this->_modelStructure->getPrimaryKey() => $ids))
+            ->indexBy($this->_modelStructure->getPrimaryKey())
+            ->leftJoin($this->_tableName, $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey . ' AND ' . $this->_tableName . '.id_language = ' . $languageId)
+            ->execute();
         return $caller instanceof Model ? $data[$caller->getID()] : $data;
     }
 
@@ -115,9 +116,9 @@ class TranslateAbility extends BaseModelAbility {
         $ids          = ModelOperator::getIDs($caller);
 
         $qc           = QC::create($this->_modelStructure->getTableName())
-                          ->where(array($this->_modelStructure->getTableName() . '.' . $this->_modelStructure->getPrimaryKey() => $ids))
-                          ->foldBy($this->_modelStructure->getPrimaryKey())
-                          ->leftJoin($this->_tableName, $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey);
+            ->where(array($this->_modelStructure->getTableName() . '.' . $this->_modelStructure->getPrimaryKey() => $ids))
+            ->foldBy($this->_modelStructure->getPrimaryKey())
+            ->leftJoin($this->_tableName, $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey);
         $qc->indexBy('id_language');
         $data = $qc->execute();
         return $caller instanceof Model ? $data[$caller->getId()] : $data;
@@ -131,16 +132,17 @@ class TranslateAbility extends BaseModelAbility {
     }
 
     public function preLoad($caller, $qc) {
-        $qc->leftJoin($this->_tableName, $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey)
-           ->where($this->_tableName . '.id_language = :d', self::getLanguageId());
+        $qc->leftJoin($this->_tableName,
+            $this->_tableName . '.id_object = ' . $this->_modelStructure->getTableName() . '.' . $this->_primaryKey
+            . ' AND ' . $this->_tableName . '.id_language = "' . self::getLanguageId() . '"');
     }
 
     public function preSave($caller) {
         $changedData    = $caller->getChangedData();
         $translatedData = array();
         foreach ($this->_config['columns'] as $columnName) {
-            if (in_array($columnName, $this->_config['columns'])) {
-                $translatedData[$columnName] = $changedData[$columnName];
+            if (in_array($columnName, $this->_config['columns']) && (array_key_exists($columnName, $changedData) || $caller->offsetExists($columnName))) {
+                $translatedData[$columnName] = array_key_exists($columnName, $changedData) ? $changedData[$columnName] : $caller->$columnName;
                 $caller->clearChangedData($columnName);
             }
             if (!empty($translatedData)) {
@@ -170,6 +172,7 @@ class TranslateAbility extends BaseModelAbility {
     private function detectTranslatableColumns() {
         $columns = array();
         foreach ($this->_modelStructure->getColumns() as $columnName => $columnInfo) {
+            if ($columnName == '_slug') continue;
             if ((strpos($columnInfo['type'], 'varchar') === 0)
                 || (strpos($columnInfo['type'], 'text') !== false)
                 || (strpos($columnInfo['type'], 'char') === 0)
