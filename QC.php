@@ -196,9 +196,9 @@ class QC {
         return new QC($tables);
     }
 
-    public static function createFromCondition($params) {
+    public static function createFromCondition() {
         $qc = new QC();
-        $qc->and($params);
+        call_user_func_array(array($qc, 'and'), func_get_args());
         return $qc;
     }
 

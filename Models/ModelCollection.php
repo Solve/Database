@@ -116,6 +116,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     /**
      * @param string $relations
+     * @return ModelCollection
      */
     public function loadRelated($relations) {
         $relations = explode(',', $relations);
@@ -123,6 +124,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($relations as $name) {
             $mr->_loadRelated($this, $name);
         }
+        return $this;
     }
 
     /**
