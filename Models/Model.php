@@ -119,6 +119,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         }
         $this->_preLoad($qc);
         $this->setOriginalData($qc->executeOne());
+        $this->unpackOriginalData();
         $this->_postLoad();
         if ($this->isEmpty()) {
             return DatabaseService::getConfig('loadOneFails') == 'model' ? $this : null;
@@ -154,6 +155,28 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_isNew        = false;
         return $this;
     }
+
+    protected function unpackOriginalData() {
+        foreach($this->_structure->getColumns() as $columnName => $columnInfo) {
+            if ($columnInfo['type'] == 'array') {
+                $value = empty($this->_data[$columnName]) ? array() : unserialize($this->_originalData[$columnName]);
+                $this->_setRawFieldValue($columnName, $value);
+            }
+        }
+        return $this;
+    }
+
+
+    protected function getPackedData($data) {
+        foreach($this->_structure->getColumns() as $columnName => $columnInfo) {
+            if ($columnInfo['type'] == 'array') {
+                $value = empty($data[$columnName]) ? "" : serialize($data[$columnName]);
+                $data[$columnName] = $value;
+            }
+        }
+        return $data;
+    }
+
 
     public function _setRawFieldValue($field, $value) {
         $this->_data[$field] = $this->_originalData[$field] = $value;
@@ -241,6 +264,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             }
         }
         $qc = QC::create($this->_tableName);
+        $dataToSave = $this->getPackedData($dataToSave);
         if ($this->_isNew) {
             if (empty($dataToSave)) {
                 $dataToSave = array($this->_primaryKey => null,);
@@ -256,6 +280,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if ($this->_isNew) {
             $data = QC::create($this->_tableName)->where(array($this->_tableName . '.' . $this->_primaryKey => $this->{$this->_primaryKey},))->executeOne();
             $this->setOriginalData($data);
+            $this->unpackOriginalData();
         }
         $this->_postSave();
         $this->_isNew       = false;
@@ -314,7 +339,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     protected function preDelete() {
     }
 
-    protected function _preLoad(QC $qc) {
+    private function _preLoad(QC $qc) {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
         foreach ($abilities as $abilityName => $abilityInfo) {
@@ -323,7 +348,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->preLoad($qc);
     }
 
-    protected function _postLoad() {
+    private function _postLoad() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
 
@@ -342,7 +367,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->postLoad();
     }
 
-    protected function _preSave() {
+    private function _preSave() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
 
@@ -352,7 +377,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->preSave();
     }
 
-    protected function _postSave() {
+    private function _postSave() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
         foreach ($abilities as $abilityName => $abilityInfo) {
@@ -361,7 +386,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->postSave();
     }
 
-    protected function _preDelete() {
+    private function _preDelete() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
         foreach ($abilities as $abilityName => $abilityInfo) {
@@ -521,9 +546,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this->offsetGet(Inflector::underscore(substr($method, 3)));
         } elseif (substr($method, 0, 3) == 'set') {
             $this->offsetSet(Inflector::underscore(substr($method, 3)), $params[0]);
-        } elseif (substr($method, 0, 3) == 'set') {
-            $this->offsetSet(strtolower(substr($method, 3)), $params[0]);
             return $this;
+        } elseif (substr($method, 0, 3) == 'get') {
+            return $this->offsetGet(Inflector::underscore(substr($method, 3)));
         }
 
         throw new \Exception('Undefined method for model: ' . $method);

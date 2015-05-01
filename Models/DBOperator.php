@@ -498,7 +498,7 @@ class DBOperator {
         if (isset($info['old_name'])) {
             $sql = '`'.$info['old_name'].'` ';
         }
-        $sql .= '`'.$info['name'].'` '.$info['type'];
+        $sql .= '`'.$info['name'].'` '.$this->getSQLTypeForField($info);
         if (isset($info['unsigned'])) $sql .= ' unsigned';
         if (isset($info['zerofill'])) $sql .= ' zerofill';
         if (isset($info['auto_increment'])) {
@@ -508,7 +508,19 @@ class DBOperator {
         } elseif (isset($info['not_null'])) {
             $sql .= ' NOT NULL';
         }
+        //var_dump($sql);die();
         return $sql;
+    }
+
+    private function getSQLTypeForField($info) {
+        if (empty($info['type'])) {
+            return 'int(11) unsigned';
+        }
+        if ($info['type'] == 'array') {
+            return 'longtext';
+        } else {
+            return $info['type'];
+        }
     }
 
     /**

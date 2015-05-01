@@ -139,7 +139,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @param QC $qc
      */
-    public function _preLoad($qc) {
+    private function _preLoad($qc) {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
 
@@ -149,7 +149,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->preLoad($qc);
     }
 
-    public function _postLoad() {
+    private function _postLoad() {
         $abilities = $this->_structure->getAbilities();
         if (empty($abilities)) $abilities = array();
 
