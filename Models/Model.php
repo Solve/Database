@@ -543,7 +543,8 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             return $this;
         } elseif ($methodInfo = ModelOperator::getInstanceAbilityMethod($this->_name, $method)) {
             array_unshift($params, $this);
-            return $this->offsetGet(Inflector::underscore(substr($method, 3)));
+            call_user_func_array(array($methodInfo['ability'], $method,), $params);
+            return $this;
         } elseif (substr($method, 0, 3) == 'set') {
             $this->offsetSet(Inflector::underscore(substr($method, 3)), $params[0]);
             return $this;
