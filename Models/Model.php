@@ -121,7 +121,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->setOriginalData($qc->executeOne());
         $this->unpackOriginalData();
         $this->_postLoad();
-        if ($this->isEmpty()) {
+        if (empty($this->_data['id'])) {
             return DatabaseService::getConfig('loadOneFails') == 'model' ? $this : null;
         } else {
             return $this;
