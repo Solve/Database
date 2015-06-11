@@ -96,7 +96,6 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         }
         $this->_preLoad($qc);
         $data = $qc->execute();
-        $this->_postLoad();
         if (empty($data)) $data = array();
 
         $this->_data = array();
@@ -111,6 +110,8 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
             $this->_data[]                              = $object;
             $this->_pk_map[$object[$this->_primaryKey]] = $index++;
         }
+        $this->_postLoad();
+
         return $this;
     }
 
@@ -156,6 +157,15 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($abilities as $abilityName => $abilityInfo) {
             ModelOperator::getAbilityInstanceForModel($this->_modelClass, $abilityName)->postLoad($this);
         }
+
+        $relations = $this->_structure->getRelations();
+        if (empty($relations)) $relations = array();
+        foreach($relations as $relationName => $relationInfo) {
+            if (!empty($relationInfo['autoload'])) {
+                $this->loadRelated($relationName);
+            }
+        }
+
         $this->postLoad();
     }
 
