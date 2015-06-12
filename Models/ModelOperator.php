@@ -22,7 +22,7 @@ use Symfony\Component\Yaml\Yaml;
  * Class ModelOperator is used to operate with models files and structures
  *
  * @version 1.0
- * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
+ * @author  Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
 class ModelOperator {
 
@@ -53,6 +53,7 @@ class ModelOperator {
      * @var array used for check syntax in model structure files
      */
     private static $_allowedStructureKeys = array(
+        'model',
         'table',
         'columns',
         'indexes',
@@ -149,18 +150,19 @@ class ModelOperator {
     public function loadStructureFiles($path = null) {
         if (empty($path)) $path = $this->_structuresPath;
 
-        $files = FSService::getInstance()->in($path)->find('*.yml', FSService::TYPE_FILE, FSService::HYDRATE_NAMES_PATH);
+        $files = FSService::getInstance()->in($path, true)->find('*.yml', FSService::TYPE_FILE, FSService::HYDRATE_NAMES_PATH);
         $data  = array();
-
-        if (isset($files['structure.yml'])) {
-            $data = Yaml::parse(file_get_contents($files['structure.yml']));
-            if (is_null($data)) $data = array();
-            unset($files['structure.yml']);
-        }
+        //if (isset($files['structure.yml'])) {
+        //    $data = Yaml::parse(file_get_contents($files['structure.yml']));
+        //    if (is_null($data)) $data = array();
+        //    unset($files['structure.yml']);
+        //}
         foreach ($files as $file) {
-            $model_name = substr($file, strrpos($file, '/') + 1, -4);
-            $data       = array_merge($data, array(ucfirst($model_name) => $data = Yaml::parse(file_get_contents($file))));
+            $modelData = Yaml::parse(file_get_contents($file));
+            $modelName = !empty($modelData['model']) ? $modelData['model'] : substr($file, strrpos($file, '/') + 1, -4);
+            $data      = array_merge($data, array(ucfirst($modelName) => $modelData));
         }
+
         $data              = self::fixYamlStructures($data);
         $this->_structures = $data;
         return $this;
@@ -191,25 +193,24 @@ class ModelOperator {
 
     /**
      * @param string $modelName
-     * @param bool $setToStructure set the structure to internal storage
+     * @param bool   $setToStructure set the structure to internal storage
      * @return array
      */
     public function generateBasicStructure($modelName, $setToStructure = true) {
-
+        $parts = explode('\\', $modelName);
+        $tableName = Inflector::pluralize(Inflector::underscore(array_pop($parts)));
         $basicStructure = array(
-            'table'   => Inflector::pluralize(Inflector::underscore($modelName)),
+            'model'   => $modelName,
+            'table'   => $tableName,
             'columns' => array(
-                'id'    => array(
-                    'type'           => 'int(11) unsigned',
-                    'auto_increment' => true
-                ),
-                'title' => array(
-                    'type' => 'varchar(255)'
+                'id' => array(
+                    'type'           => 'integer',
+                    'auto_increment' => true,
                 ),
             ),
             'indexes' => array(
-                'primary' => array('columns' => array('id'))
-            )
+                'primary' => array('columns' => array('id')),
+            ),
         );
         if ($setToStructure) {
             $this->setStructureForModel($modelName, $basicStructure);
@@ -224,46 +225,34 @@ class ModelOperator {
      * @return bool
      */
     public function saveModelStructure($modelName) {
-        $file_name = strtolower($modelName);
+        $info = $this->getStructurePathForModel($modelName);
+        $filePath = $info['path'] . '/'. $info['fileName'] . '.yml';
         $modelName = ucfirst($modelName);
-        FSService::makeWritable($this->_structuresPath);
-        if (is_file($this->_structuresPath . $file_name . '.yml')) {
-            unlink($this->_structuresPath . $file_name . '.yml');
+        FSService::makeWritable($info['path']);
+        if (is_file($filePath)) {
+            unlink($filePath);
         }
 
-        $full_structure = array();
-        if (is_file($this->_structuresPath . 'structure.yml')) {
-            $full_structure = Yaml::parse(file_get_contents($this->_structuresPath . 'structure.yml'));
-            if (is_null($full_structure)) {
-                $full_structure = array();
-            }
-            foreach ($full_structure as $key => $item) {
-                unset($full_structure[$key]);
-                $full_structure[ucfirst($key)] = $item;
-            }
-        }
         $structure = self::fixYamlStructures($this->_structures[$modelName], true);
-        if ($this->_isSeparateStorage) {
-            if (isset($full_structure[$modelName])) {
-                unset($full_structure[$modelName]);
-            }
-            if (!empty($full_structure)) {
-                file_put_contents($this->_structuresPath . 'structure.yml', Yaml::dump($full_structure, 6, 2));
-            } else {
-                if (is_file($this->_structuresPath . 'structure.yml')) @unlink($this->_structuresPath . 'structure.yml');
-            }
-            file_put_contents($this->_structuresPath . $modelName . '.yml', Yaml::dump($structure, 6, 2));
-
-        } else {
-            $full_structure[$modelName] = $structure;
-            file_put_contents($this->_structuresPath . 'structure.yml', Yaml::dump($full_structure, 6, 2));
-        }
+        file_put_contents($filePath, Yaml::dump($structure, 6, 2));
         $this->_structures[$modelName] = $structure;
         return true;
     }
 
+    public function getStructurePathForModel($modelName) {
+        if (strpos($modelName, '\\') !== false) {
+            $parts = explode("\\", $modelName);
+            $fileName = array_pop($parts);
+            $path = $this->_structuresPath . implode('/', $parts);
+        } else {
+            $fileName = ucfirst($modelName);
+            $path = $this->_structuresPath;
+        }
+        return array('path' => $path, 'fileName' => $fileName);
+    }
+
     public function generateDataProcessorRules($modelName) {
-        $rules = array();
+        $rules     = array();
         $structure = ModelStructure::getInstanceForModel($modelName);
         foreach ($structure->getColumns() as $columnName => $columnInfo) {
             if (!is_array($columnInfo)) continue;
@@ -280,11 +269,11 @@ class ModelOperator {
                 $columnRules[0] = array_merge(array('mandatory' => true), $columnRules[0]);
             }
             if (strpos($columnName, 'email') !== false) {
-                $columnRules[0] = array_merge(array('email'=>true), $columnRules[0]);
+                $columnRules[0] = array_merge(array('email' => true), $columnRules[0]);
             }
             if (!empty($columnRules[0]) || !empty($columnRules[1])) {
                 $rules[$columnName] = $columnRules;
-                $value = array();
+                $value              = array();
                 if (!empty($columnRules[0])) {
                     $value['validation'] = $columnRules[0];
                 }
@@ -304,10 +293,11 @@ class ModelOperator {
     /**
      * Generate Model file if it's not exist
      * @param string $className
+     * @param string $namespace
      * @return void
      * @throws \Exception if no structure defined
      */
-    public function generateModelClass($className) {
+    public function generateModelClass($className, $namespace = "Entities") {
 
         $className = ucfirst($className);
 
@@ -357,14 +347,14 @@ class ModelOperator {
         if (!empty($methodsText)) {
             $methodsText = substr($methodsText, 0, -1);
         }
-
         //@todo event dispatcher for project name needed
         $replace           = array(
             '__BASENAME__'   => $baseClassName,
+            '__NAMESPACE__'  => $namespace,
             '__NAME__'       => $className,
             '__PROPERTIES__' => $propertiesText . (empty($methodsText) ? '' : "\n" . $methodsText),
             '__DATE__'       => date('d.m.Y H:i:s'),
-            '__PROJECT__'    => ''
+            '__PROJECT__'    => '',
         );
         $baseClassTemplate = file_get_contents(__DIR__ . '/_baseTemplate.php');
         $baseClassTemplate = str_replace(array_keys($replace), array_values($replace), $baseClassTemplate);
@@ -494,7 +484,7 @@ class ModelOperator {
                         $structure['columns'] = array_merge(array('id' => array(
                             'type'           => 'int(11) unsigned',
                             'auto_increment' => true,
-                            'not_null'       => true
+                            'not_null'       => true,
                         )), $structure['columns']);
                     }
                     $pk_field = 'id';
@@ -604,7 +594,7 @@ class ModelOperator {
 
     /**
      * @param Model|ModelCollection $caller
-     * @param $fieldName
+     * @param                       $fieldName
      * @return array
      */
     public static function getFieldArray($caller, $fieldName) {
@@ -649,8 +639,8 @@ class ModelOperator {
     }
 
     /**
-     * @param $modelName
-     * @param $abilityName
+     * @param                  $modelName
+     * @param                  $abilityName
      * @param BaseModelAbility $abilityInstance
      */
     private static function cacheAbilitiesMethods($modelName, $abilityName, $abilityInstance) {
@@ -667,14 +657,14 @@ class ModelOperator {
             foreach ($methods as $method => $info) {
                 self::$_abilitiesMethodsCache[$modelName]['instance'][$method] = array(
                     'ability' => $abilityInstance,
-                    'info'    => $info
+                    'info'    => $info,
                 );
             }
             $methods = $abilityInstance->getPublishedStaticMethods();
             foreach ($methods as $method => $info) {
                 self::$_abilitiesMethodsCache[$modelName]['static'][$method] = array(
                     'ability' => $abilityInstance,
-                    'info'    => $info
+                    'info'    => $info,
                 );
             }
         }

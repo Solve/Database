@@ -1,5 +1,7 @@
 <?php
 
+namespace __NAMESPACE__;
+
 use \Solve\Database\Models\Model;
 use \Solve\Database\Models\ModelCollection;
 use \Solve\Database\QC;

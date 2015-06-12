@@ -1,5 +1,7 @@
 <?php
 
+namespace __NAMESPACE__;
+
 /**
  * Class  __NAME__ Generated with ModelOperator
  *
