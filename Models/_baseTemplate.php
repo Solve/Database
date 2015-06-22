@@ -13,7 +13,7 @@ use \Solve\Database\QC;
  *
  * created __DATE__
  *
- * @method static __NAME__ loadOne($criteria)
+ * @method static __CLEAR_NAME__ loadOne($criteria)
 __PROPERTIES__
  */
 class __BASENAME__ extends Model { }
