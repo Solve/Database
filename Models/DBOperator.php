@@ -513,10 +513,11 @@ class DBOperator {
     }
 
     private function getSQLTypeForField($info) {
-        if (empty($info['type'])) {
+        if (empty($info['type']) || $info['type'] == 'integer') {
             return 'int(11) unsigned';
-        }
-        if ($info['type'] == 'array') {
+        } elseif ($info['type'] == 'string') {
+            return 'varchar(255)';
+        } elseif ($info['type'] == 'array') {
             return 'longtext';
         } else {
             return $info['type'];
