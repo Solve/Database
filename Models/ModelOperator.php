@@ -158,9 +158,10 @@ class ModelOperator {
         //    unset($files['structure.yml']);
         //}
         foreach ($files as $file) {
-            $modelData = Yaml::parse(file_get_contents($file));
-            $modelName = !empty($modelData['model']) ? $modelData['model'] : substr($file, strrpos($file, '/') + 1, -4);
-            $data      = array_merge($data, array(ucfirst($modelName) => $modelData));
+            $modelData      = Yaml::parse(file_get_contents($file));
+            $modelName      = !empty($modelData['model']) ? $modelData['model'] : substr($file, strrpos($file, '/') + 1, -4);
+            $modelNamespace = "Entities";
+            $data           = array_merge($data, array($modelNamespace . "\\" . ucfirst($modelName) => $modelData));
         }
 
         $data              = self::fixYamlStructures($data);
@@ -197,8 +198,8 @@ class ModelOperator {
      * @return array
      */
     public function generateBasicStructure($modelName, $setToStructure = true) {
-        $parts = explode('\\', $modelName);
-        $tableName = Inflector::pluralize(Inflector::underscore(array_pop($parts)));
+        $parts          = explode('\\', $modelName);
+        $tableName      = Inflector::pluralize(Inflector::underscore(array_pop($parts)));
         $basicStructure = array(
             'model'   => $modelName,
             'table'   => $tableName,
@@ -225,8 +226,8 @@ class ModelOperator {
      * @return bool
      */
     public function saveModelStructure($modelName) {
-        $info = $this->getStructurePathForModel($modelName);
-        $filePath = $info['path'] . '/'. $info['fileName'] . '.yml';
+        $info      = $this->getStructurePathForModel($modelName);
+        $filePath  = $info['path'] . '/' . $info['fileName'] . '.yml';
         $modelName = ucfirst($modelName);
         FSService::makeWritable($info['path']);
         if (is_file($filePath)) {
@@ -241,12 +242,12 @@ class ModelOperator {
 
     public function getStructurePathForModel($modelName) {
         if (strpos($modelName, '\\') !== false) {
-            $parts = explode("\\", $modelName);
+            $parts    = explode("\\", $modelName);
             $fileName = array_pop($parts);
-            $path = $this->_structuresPath . implode('/', $parts);
+            $path     = $this->_structuresPath . implode('/', $parts);
         } else {
             $fileName = ucfirst($modelName);
-            $path = $this->_structuresPath;
+            $path     = $this->_structuresPath;
         }
         return array('path' => $path, 'fileName' => $fileName);
     }
@@ -305,26 +306,32 @@ class ModelOperator {
         if (empty($this->_structures[$className])) {
             throw new \Exception('There is no structure defined for ' . $className);
         }
-
-        $baseClassName = 'Base' . $className;
-        $baseClassPath = $this->_storagePath . 'bases/' . $baseClassName . '.php';
+        $clearClassName = substr($className, strrpos($className, "\\") + 1);
+        $baseClassName  = 'Base' . $clearClassName;
+        $baseClassPath  = $this->_storagePath . 'bases/' . $baseClassName . '.php';
         FSService::makeWritable($this->_modelsPath);
         FSService::makeWritable($this->_storagePath . 'bases/');
 
         $propertiesText = '';
         $methodsText    = '';
         foreach ($this->_structures[$className]['columns'] as $key => $props) {
-            $propertiesText .= ' * @property mixed ' . $key . "\n";
+            //$propertiesText .= ' * @property mixed ' . $key . "\n";
             $methodsText .= ' * @method mixed get' . Inflector::camelize($key) . '()' . "\n";
-            $methodsText .= ' * @method ' . $className . ' set' . Inflector::camelize($key) . '($value)' . "\n";
+            $methodsText .= ' * @method ' . $clearClassName . ' set' . Inflector::camelize($key) . '($value)' . "\n";
         }
         if (!empty($this->_structures[$className]['relations'])) {
             $methodsText .= ' * @method mixed setRelatedIDs($relationName, $ids)' . "\n";
             $methodsText .= ' * @method mixed clearRelatedIDs($relationName, $ids = null)' . "\n";
             foreach ($this->_structures[$className]['relations'] as $key => $props) {
+                if (empty($props['type']) || (substr($props['type'], -3) == "one")) {
+                    $resultType = empty($props['model']) ? 'Model' : $props['model'];
+                } else {
+                    $resultType = 'ModelCollection';
+                }
                 $methodsText .= ' * @method mixed setRelated' . Inflector::camelize($key) . '($ids)' . "\n";
                 $methodsText .= ' * @method mixed clearRelated' . Inflector::camelize($key) . '($ids = null)' . "\n";
-                $propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'Model|ModelCollection') . ' ' . $key . "\n";
+                $methodsText .= ' * @method ' . $resultType . ' get' . Inflector::camelize($key) . '()' . "\n";
+                //$propertiesText .= ' * @property ' . (isset($props['model']) ? $props['model'] : 'Model|ModelCollection') . ' ' . $key . "\n";
             }
         }
         if (!empty($propertiesText)) {
@@ -352,6 +359,7 @@ class ModelOperator {
             '__BASENAME__'   => $baseClassName,
             '__NAMESPACE__'  => $namespace,
             '__NAME__'       => $className,
+            '__CLEAR_NAME__' => $clearClassName,
             '__PROPERTIES__' => $propertiesText . (empty($methodsText) ? '' : "\n" . $methodsText),
             '__DATE__'       => date('d.m.Y H:i:s'),
             '__PROJECT__'    => '',
@@ -586,6 +594,9 @@ class ModelOperator {
         $info['relationType']   = $info['type'];
         unset($info['type']);
 
+        if (strpos($info['relatedModelName'], '\\') === false) {
+            $info['relatedModelName'] = 'Entities\\'.$info['relatedModelName'];
+        }
         if (empty($info['manyTable'])) $info['manyTable'] = ($info['localTable'] > $foreignTable ? $info['localTable'] . '_' . $foreignTable : $foreignTable . '_' . $info['localTable']);
         self::$_variablesCache[$modelName . $relationName] = $info;
 

@@ -170,7 +170,7 @@ class ModelRelation {
         if (($caller instanceof Model) && $caller->_hasCollectionReference()) {
             $caller = $caller->_getCollectionReference();
         }
-        if ($relationType == 'many_to_one') {
+        if (substr($relationType, '-6') == 'to_one') {
             $foreignIds = ModelOperator::getFieldArray($caller, $localField);
         } elseif ($relationToMany) {
             $localIds = ModelOperator::getIDs($caller);

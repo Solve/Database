@@ -20,7 +20,7 @@ use Solve\Database\Models\ModelCollection;
  * @package Solve\Database\Models
  *
  * @version 1.0
- * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
+ * @author  Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
 class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
@@ -37,12 +37,13 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @var DataProcessor
      */
-    private        $_dataProcessor;
-    private        $_data           = array();
-    private        $_originalData   = array();
-    private        $_changedData    = array();
-    private        $_isNew          = true;
-    private        $_invokedGetters = array();
+    private $_dataProcessor;
+    private $_data           = array();
+    private $_originalData   = array();
+    private $_changedData    = array();
+    private $_isNew          = true;
+    private $_invokedGetters = array();
+    private $_loadedKeys     = array();
 
     /**
      * @var null|string instance model name
@@ -55,6 +56,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_structure          = ModelStructure::getInstanceForModel($this->_name);
         $this->_tableName          = $this->_structure->getTableName();
         $this->_primaryKey         = $this->_structure->getPrimaryKey();
+
         $this->mergeWithData($data);
         $this->initializeDataProcessor();
         $this->initializeAbilities();
@@ -119,7 +121,6 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         }
         $this->_preLoad($qc);
         $this->setOriginalData($qc->executeOne());
-        $this->unpackOriginalData();
         $this->_postLoad();
         if (empty($this->_data['id'])) {
             return DatabaseService::getConfig('loadOneFails') == 'model' ? $this : null;
@@ -153,14 +154,26 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_originalData = $data;
         $this->_data         = $data;
         $this->_isNew        = false;
+        $this->unpackOriginalData();
         return $this;
     }
 
     protected function unpackOriginalData() {
-        foreach($this->_structure->getColumns() as $columnName => $columnInfo) {
+        foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
             if ($columnInfo['type'] == 'array') {
                 $value = empty($this->_data[$columnName]) ? array() : unserialize($this->_originalData[$columnName]);
                 $this->_setRawFieldValue($columnName, $value);
+            } elseif ($columnInfo['type'] == 'datetime') {
+                //dump($this->_originalData, $value);
+                $value = empty($this->_originalData[$columnName]) ? null : new \DateTime($this->_originalData[$columnName]);
+                $this->_setRawFieldValue($columnName, $value);
+            }
+        }
+        if ($relations = $this->_structure->getRelations()) {
+            foreach($relations as $name=>$info) {
+                if (!array_key_exists($name, $this->_data)) {
+                    $this->_data[$name] = null;
+                }
             }
         }
         return $this;
@@ -168,9 +181,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
 
     protected function getPackedData($data) {
-        foreach($this->_structure->getColumns() as $columnName => $columnInfo) {
+        foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
             if ($columnInfo['type'] == 'array') {
-                $value = empty($data[$columnName]) ? "" : serialize($data[$columnName]);
+                $value             = empty($data[$columnName]) ? "" : serialize($data[$columnName]);
                 $data[$columnName] = $value;
             }
         }
@@ -183,7 +196,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return $this;
     }
 
-    public function _setRawFieldData($data) {
+    public function _setRawData($data) {
         foreach ($data as $field => $value) {
             $this->_data[$field] = $this->_originalData[$field] = $value;
         }
@@ -246,7 +259,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $this->_preSave();
 
         if (!$this->validate()) return false;
-        foreach($this->_dataProcessor->getData() as $columnName => $value) {
+        foreach ($this->_dataProcessor->getData() as $columnName => $value) {
             if ($value != $this->_data[$columnName]) {
                 $this->_changedData[$columnName] = $value;
             }
@@ -263,7 +276,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
                 $dataToSave[$column] = array_key_exists($column, $this->_data) ? $this->_data[$column] : null;
             }
         }
-        $qc = QC::create($this->_tableName);
+        $qc         = QC::create($this->_tableName);
         $dataToSave = $this->getPackedData($dataToSave);
         if ($this->_isNew) {
             if (empty($dataToSave)) {
@@ -358,7 +371,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
         $relations = $this->_structure->getRelations();
         if (empty($relations)) $relations = array();
-        foreach($relations as $relationName => $relationInfo) {
+        foreach ($relations as $relationName => $relationInfo) {
             if (!empty($relationInfo['autoload'])) {
                 $this->loadRelated($relationName);
             }
@@ -410,7 +423,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         return empty($this->_data);
     }
 
-    public function isExists(){
+    public function isExists() {
         return !empty($this->_data) && !empty($this->_data[$this->_primaryKey]);
     }
 
@@ -505,7 +518,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     public function &__get($key) {
         // if key is exists - return it
-        if (array_key_exists($key, $this->_data)) return $this->_data[$key];
+        if (array_key_exists($key, $this->_loadedKeys) || !empty($this->_data[$key])) return $this->_data[$key];
 
         $getterName = Inflector::camelize($key);
         $method     = 'get' . $getterName;
@@ -514,7 +527,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         // check for getter
         if (method_exists($this, $method) && !array_key_exists($getterName, $this->_invokedGetters)) {
             $this->_data[$key] = $this->_invokedGetters[$getterName] = $this->$method();
-            return $this->_data[$key];
+            $value             = $this->_data[$key];
             // check for relation
         } elseif ($this->_structure->hasRelation($key) && !$this->_isNew) {
             $mr = ModelRelation::getInstanceForModel($this);
@@ -524,6 +537,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             array_unshift($params, $this);
             call_user_func_array(array($methodInfo['ability'], $method,), $params);
         }
+        $this->_loadedKeys[$key] = true;
         if (array_key_exists($key, $this->_data)) {
             return $this->_data[$key];
         } else {
@@ -546,7 +560,12 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
             call_user_func_array(array($methodInfo['ability'], $method,), $params);
             return $this;
         } elseif (substr($method, 0, 3) == 'set') {
-            $this->offsetSet(Inflector::underscore(substr($method, 3)), $params[0]);
+            $modelName = substr($method, 3);
+            if ($this->_structure->getRelationInfo(Inflector::underscore($modelName))) {
+                ModelRelation::getInstanceForModel($this)->setRelatedIDs($this, $modelName, $params[0]);
+            } else {
+                $this->offsetSet(Inflector::underscore(substr($method, 3)), $params[0]);
+            }
             return $this;
         } elseif (substr($method, 0, 3) == 'get') {
             return $this->offsetGet(Inflector::underscore(substr($method, 3)));
@@ -583,7 +602,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
     }
 
     public function &offsetGet($offset) {
-        return $this->_data[$offset];
+        return $this->__get($offset);
     }
 
     public function offsetSet($offset, $value) {
