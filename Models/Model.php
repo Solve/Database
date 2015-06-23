@@ -164,7 +164,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
                 $value = empty($this->_data[$columnName]) ? array() : unserialize($this->_originalData[$columnName]);
                 $this->_setRawFieldValue($columnName, $value);
             } elseif ($columnInfo['type'] == 'datetime') {
-                //dump($this->_originalData, $value);
+                //dump($this->_originalData, $columnName);
                 $value = empty($this->_originalData[$columnName]) ? null : new \DateTime($this->_originalData[$columnName]);
                 $this->_setRawFieldValue($columnName, $value);
             }
@@ -182,9 +182,16 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     protected function getPackedData($data) {
         foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
+            if (empty($data[$columnName])) {
+                $data[$columnName] = '';
+                continue;
+            }
             if ($columnInfo['type'] == 'array') {
-                $value             = empty($data[$columnName]) ? "" : serialize($data[$columnName]);
-                $data[$columnName] = $value;
+                $data[$columnName] = serialize($data[$columnName]);
+            } elseif (strpos($columnInfo['type'], 'date') !== false) {
+                if (is_object($data[$columnName]) && $data[$columnName] instanceof \DateTime) {
+                    $data[$columnName] = $data[$columnName]->format('Y-m-d H:i:s');
+                }
             }
         }
         return $data;
@@ -525,7 +532,9 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $getterName = Inflector::camelize($key);
         $method     = 'get' . $getterName;
         $default    = null;
-
+        if ($key == 'Tenant') {
+            die('1');
+        }
         // check for getter
         if (method_exists($this, $method) && !array_key_exists($getterName, $this->_invokedGetters)) {
             $this->_data[$key] = $this->_invokedGetters[$getterName] = $this->$method();
