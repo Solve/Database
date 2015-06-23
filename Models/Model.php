@@ -293,7 +293,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         if ($this->_isNew) {
             $data = QC::create($this->_tableName)->where(array($this->_tableName . '.' . $this->_primaryKey => $this->{$this->_primaryKey},))->executeOne();
             $this->setOriginalData($data);
-            $this->unpackOriginalData();
+            //$this->unpackOriginalData();
         }
         $this->_postSave();
         $this->_isNew       = false;
