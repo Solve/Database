@@ -443,6 +443,8 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         $info = $this->_structure->getColumnInfo($column);
         if (strpos($info['type'], 'int') !== false) {
             return intval($value);
+        } elseif (strpos($info['type'], 'date') !== false && is_object($value)) {
+            return $value->format('Y-m-d H:i:s');
         }
         return $value;
     }
