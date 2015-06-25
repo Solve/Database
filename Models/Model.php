@@ -182,7 +182,7 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
 
     protected function getPackedData($data) {
         foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
-//            if ($columnName == $this->_primaryKey) continue;
+            if ($columnName == $this->_primaryKey) continue;
             if (empty($data[$columnName])) {
                 $data[$columnName] = null;
                 continue;
