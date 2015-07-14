@@ -105,9 +105,9 @@ class FilesAbility extends BaseModelAbility {
             }
         }
         if (empty($this->_config[$alias]['multiple'])) {
-            $filesToDelete = GLOB($storeLocation . '*.*');
+            $filesToDelete = GLOB($storeLocation . '*');
             foreach($filesToDelete as $file) {
-                unlink($file);
+                FSService::unlinkRecursive($file);
             }
         }
         copy($filePath, $storeLocation . $newFileName . $newFileExtension);
