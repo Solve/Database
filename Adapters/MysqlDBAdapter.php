@@ -363,7 +363,7 @@ class MysqlDBAdapter extends BaseDBAdapter {
         if ($type === false) {
             $type = gettype($value);
         }
-        if (strpos($value, '#sql#') !== false) {
+        if (strpos($value, '#sql#') === 0) {
             return substr($value, 5);
         }
         if (in_array($type, array('integer'))) {

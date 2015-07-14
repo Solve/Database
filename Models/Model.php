@@ -184,14 +184,12 @@ class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
         foreach ($this->_structure->getColumns() as $columnName => $columnInfo) {
             if ($columnName == $this->_primaryKey) continue;
 
-            if (empty($data[$columnName])) {
-                continue;
-            }
+            $value = empty($data[$columnName]) ? "" : $data[$columnName];
             if ($columnInfo['type'] == 'array') {
-                $data[$columnName] = serialize($data[$columnName]);
+                $data[$columnName] = serialize((array)$value);
             } elseif (strpos($columnInfo['type'], 'date') !== false) {
-                if (is_object($data[$columnName]) && $data[$columnName] instanceof \DateTime) {
-                    $data[$columnName] = $data[$columnName]->format('Y-m-d H:i:s');
+                if (is_object($value) && $value instanceof \DateTime) {
+                    $data[$columnName] = $value->format('Y-m-d H:i:s');
                 }
             }
 
