@@ -22,7 +22,7 @@ use Solve\Database\Models\ModelCollection;
  * @version 1.0
  * @author  Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
-class Model implements \ArrayAccess, \IteratorAggregate, \Countable {
+class Model implements ModelInterface, \ArrayAccess, \IteratorAggregate, \Countable {
     /**
      * @var ModelStructure
      */
