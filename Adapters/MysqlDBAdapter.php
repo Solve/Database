@@ -8,8 +8,10 @@
  */
 
 namespace Solve\Database\Adapters;
+
 use Solve\Database\QC;
 use Solve\Database\Exceptions\MysqlDBAdapterException;
+use Solve\Kernel\DC;
 
 require_once 'BaseDBAdapter.php';
 require_once dirname(__FILE__) . '/../Exceptions/MysqlDBAdapterException.php';
@@ -22,36 +24,38 @@ require_once dirname(__FILE__) . '/../Exceptions/MysqlDBAdapterException.php';
  * Class MysqlDBAdapter is used to ...
  *
  * @version 1.0
- * @author Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
+ * @author  Alexandr Viniychuk <alexandr.viniychuk@icloud.com>
  */
-class MysqlDBAdapter extends BaseDBAdapter {
+class MysqlDBAdapter extends BaseDBAdapter
+{
 
-    private $_pregParametricParams      = null;
-    private $_pregParametricCounter     = 1;
+    private $_pregParametricParams  = null;
+    private $_pregParametricCounter = 1;
 
     /**
      * @var \PDO connection
      */
-    private $_dbh                       = null;
+    private $_dbh = null;
 
-    public function connect($options) {
+    public function connect($options)
+    {
         if (!extension_loaded('pdo')) throw new \Exception('PDO extension is not loaded.');
         try {
             $this->_dbh = new \PDO(($dsn = self::compileDSN($options)), $options['user'], $options['pass']);
             $this->_dbh->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        } catch(\PDOException $e) {
-            throw new MysqlDBAdapterException('Database connection error, check access to '.(empty($options['name']) ? "(empty profile)" : $options['name']) . "\n".$e->getMessage());
+        } catch (\PDOException $e) {
+            throw new MysqlDBAdapterException('Database connection error, check access to ' . (empty($options['name']) ? "(empty profile)" : $options['name']) . "\n" . $e->getMessage());
         }
 
         try {
             if (!empty($options['name'])) {
-                $this->_dbh->query('USE '.$options['name']);
+                $this->_dbh->query('USE ' . $options['name']);
             }
-            $this->_dbh->setAttribute(\PDO::ATTR_AUTOCOMMIT , true);
+            $this->_dbh->setAttribute(\PDO::ATTR_AUTOCOMMIT, true);
             if (empty($options['charset'])) $options['charset'] = 'utf8';
-            $this->_dbh->query('SET NAMES '.$options['charset']);
+            $this->_dbh->query('SET NAMES ' . $options['charset']);
         } catch (\PDOException $e) {
-            throw new MysqlDBAdapterException('Database connection error, check access to '.$options['name']."\n".$e->getMessage());
+            throw new MysqlDBAdapterException('Database connection error, check access to ' . $options['name'] . "\n" . $e->getMessage());
         }
 
         return true;
@@ -63,13 +67,14 @@ class MysqlDBAdapter extends BaseDBAdapter {
      * @param QC $query
      * @throws MysqlDBAdapterException
      */
-    public function executeQuery(QC $query) {
-        $type   = $query->getType();
+    public function executeQuery(QC $query)
+    {
+        $type       = $query->getType();
         $methodName = 'execute' . ucfirst($type);
         if (method_exists($this, $methodName)) {
             $result = $this->$methodName($query);
         } else {
-            throw new MysqlDBAdapterException('Invalid method specified: '.$type);
+            throw new MysqlDBAdapterException('Invalid method specified: ' . $type);
         }
 
         return $result;
@@ -77,24 +82,26 @@ class MysqlDBAdapter extends BaseDBAdapter {
 
     /**
      * Process query to SQL
-     * @param QC $qc
+     * @param QC    $qc
      * @param mixed $type
      * @return mixed
      * @throws MysqlDBAdapterException
      */
-    public function buildQuery(QC $qc, $type = null) {
+    public function buildQuery(QC $qc, $type = null)
+    {
         if (!$type) $type = $qc->getType();
 
         $methodName = 'build' . ucfirst($type);
         if (method_exists($this, $methodName)) {
             $result = $this->$methodName($qc);
         } else {
-            throw new MysqlDBAdapterException('Invalid method specified: '.$type);
+            throw new MysqlDBAdapterException('Invalid method specified: ' . $type);
         }
         return $result;
     }
 
-    private function buildSelect(QC $q) {
+    private function buildSelect(QC $q)
+    {
         if ($q->getModifier('rawSelect')) {
             $sqlArray = $q->getModifier('rawSelect');
             return $sqlArray[0];
@@ -114,10 +121,10 @@ class MysqlDBAdapter extends BaseDBAdapter {
         $joins = $q->getJoins();
         if (!empty($joins)) {
             $sql .= ' ';
-            foreach($joins as $type => $list) {
-                foreach($list as $join) {
-                    $sql .= strtoupper($type) . ' JOIN '. $join[0]
-                        .(strpos($join[1], ' ') === false ? ' USING ('.$this->escapeSqlName($join[1]) : ' ON ('.$join[1]).')';
+            foreach ($joins as $type => $list) {
+                foreach ($list as $join) {
+                    $sql .= strtoupper($type) . ' JOIN ' . $join[0]
+                        . (strpos($join[1], ' ') === false ? ' USING (' . $this->escapeSqlName($join[1]) : ' ON (' . $join[1]) . ')';
                 }
             }
         }
@@ -134,18 +141,19 @@ class MysqlDBAdapter extends BaseDBAdapter {
      * @param \PDOStatement $res
      * @return array
      */
-    public function fetchSelectResult($res) {
+    public function fetchSelectResult($res)
+    {
         return $res->rowCount() ? $res->fetchAll(\PDO::FETCH_ASSOC) : array();
     }
 
-    private function executeSelect(QC $q) {
-        $sql = $this->buildSelect($q);
-
-        $res = $this->_dbh->query($sql);
+    private function executeSelect(QC $q)
+    {
+        $res = $this->executeSQL($this->buildSelect($q));
         return $this->fetchSelectResult($res);
     }
 
-    private function buildInsert(QC $q) {
+    private function buildInsert(QC $q)
+    {
         $sql = 'INSERT INTO' . ' ' . $this->escapeSqlName($q->getTables()) . ' ';
 
         $keys = array();
@@ -154,13 +162,13 @@ class MysqlDBAdapter extends BaseDBAdapter {
             if (!array_key_exists(0, $data)) {
                 $data = array($data);
             }
-            foreach($data as $i=>$item) {
+            foreach ($data as $i => $item) {
                 if (!is_array($item)) continue;
 
                 if (array_key_exists(0, $item)) {
                     unset($data[$i]);
-                    foreach($item as $sub_item) {
-                        $keys = array_merge($keys, array_keys($sub_item));
+                    foreach ($item as $sub_item) {
+                        $keys   = array_merge($keys, array_keys($sub_item));
                         $data[] = $sub_item;
                     }
                 } else {
@@ -169,17 +177,17 @@ class MysqlDBAdapter extends BaseDBAdapter {
             }
             $keys = array_unique($keys);
             if (count($keys)) {
-                $sql .= '(`'.implode('`, `',$keys).'`) VALUES ';
-                foreach($data as $item) {
+                $sql .= '(`' . implode('`, `', $keys) . '`) VALUES ';
+                foreach ($data as $item) {
                     $sql .= '(';
-                    foreach($keys as $key) {
-                        $sql .= (isset($item[$key]) ? $this->escapeOne($item[$key]) : '""').", ";
+                    foreach ($keys as $key) {
+                        $sql .= (isset($item[$key]) ? $this->escapeOne($item[$key]) : '""') . ", ";
                     }
-                    $sql = substr($sql, 0, -2).'), ';
+                    $sql = substr($sql, 0, -2) . '), ';
                 }
             } else {
-                $sql.= 'SET ';
-                foreach($q->getQueryParams('data') as $item) $sql.= $item.',';
+                $sql .= 'SET ';
+                foreach ($q->getQueryParams('data') as $item) $sql .= $item . ',';
             }
             $sql = substr($sql, 0, -2);
         } else {
@@ -190,30 +198,32 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    private function executeInsert(QC $q) {
-        $sql = $this->buildInsert($q);
-        $res = $this->_dbh->query($sql);
+    private function executeInsert(QC $q)
+    {
+        $res = $this->executeSQL($this->buildInsert($q));
         return $res ? $this->_dbh->lastInsertId() : false;
     }
 
-    private function buildReplace(QC $q) {
+    private function buildReplace(QC $q)
+    {
         $sql = $this->buildInsert($q);
         $sql = str_replace('INSERT', 'REPLACE', $sql);
 
         return $sql;
     }
 
-    private function executeReplace(QC $q) {
-        $sql = $this->buildReplace($q);
-        $res = $this->_dbh->query($sql);
+    private function executeReplace(QC $q)
+    {
+        $res = $this->executeSQL($this->buildReplace($q));
         return $res ? $this->_dbh->lastInsertId() : false;
     }
 
-    private function buildUpdate(QC $q) {
+    private function buildUpdate(QC $q)
+    {
 //        var_dump($q->getQueryParams('data'));die();
         $sql = 'UPDATE ' . $this->escapeSqlName($q->getTables())
-            .' SET '.$this->processData($q->getQueryParams('data'), ', ');
-        $c = $q->getCriteria();
+            . ' SET ' . $this->processData($q->getQueryParams('data'), ', ');
+        $c   = $q->getCriteria();
         if (!empty($c)) {
             $sql .= ' WHERE ' . $this->processCriteria($c);
         }
@@ -221,13 +231,14 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    private function executeUpdate(QC $q) {
-        $sql = $this->buildUpdate($q);
-        $res = $this->_dbh->query($sql);
+    private function executeUpdate(QC $q)
+    {
+        $res = $this->executeSQL($this->buildUpdate($q));
         return $res ? $res->rowCount() : false;
     }
 
-    private function buildDelete(QC $q) {
+    private function buildDelete(QC $q)
+    {
         $sql = 'DELETE FROM' . ' ' . $this->escapeSqlName($q->getTables());
 
         $c = $q->getCriteria();
@@ -239,39 +250,42 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    private function executeDelete(QC $q) {
-        $sql = $this->buildDelete($q);
-        $res = $this->_dbh->query($sql);
+    private function executeDelete(QC $q)
+    {
+        $res = $this->executeSQL($this->buildDelete($q));
         return $res ? $res->rowCount() : false;
     }
 
-    private function requireTable(QC $q) {
+    private function requireTable(QC $q)
+    {
         if (!($tables = $q->getTables())) {
             throw new MysqlDBAdapterException('This query requires a table to be specified');
         }
         return $tables;
     }
 
-    private function processModifiers(QC $q) {
+    private function processModifiers(QC $q)
+    {
         $sql = '';
         if (($groupBy = $q->getModifier('groupBy'))) $sql .= ' GROUP BY ' . $this->escapeSqlName($groupBy[0]);
         if (($orderBy = $q->getModifier('orderBy'))) $sql .= ' ORDER BY ' . $this->escapeSqlName($orderBy[0]);
         if ($q->getModifier('one')) {
             $sql .= ' LIMIT 1';
-        } elseif(($limit = $q->getModifier('limit'))) {
+        } elseif (($limit = $q->getModifier('limit'))) {
             if (count($limit) > 1) $limit[0] = implode(', ', $limit);
-            $sql .= ' LIMIT '.$limit[0];
+            $sql .= ' LIMIT ' . $limit[0];
         }
         return $sql;
     }
 
-    private function processCriteria($params) {
+    private function processCriteria($params)
+    {
         $sql = '';
-        foreach($params as $p) {
+        foreach ($params as $p) {
             if (!empty($p['isComplex'])) {
-                $sql .= ' '.strtoupper($p['method']) . ' ' . $this->processCriteria($p['params']);
+                $sql .= ' ' . strtoupper($p['method']) . ' ' . $this->processCriteria($p['params']);
             } else {
-                $sql .= ' '.strtoupper($p['method']) . ' (' . $this->processParametricCondition($p['params']) . ')';
+                $sql .= ' ' . strtoupper($p['method']) . ' (' . $this->processParametricCondition($p['params']) . ')';
             }
         }
         $sql = '(' . substr($sql, strlen($params[0]['method']) + 2) . ')';
@@ -279,14 +293,15 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    private function processData($data, $glue = ',') {
+    private function processData($data, $glue = ',')
+    {
         $sql = '';
         if (array_key_exists(0, $data)) {
             $sql .= $this->processParametricCondition($data);
         } else {
-            foreach($data as $field => $value) {
+            foreach ($data as $field => $value) {
                 if (is_array($value)) throw new MysqlDBAdapterException('You tried to set array as a value in data part');
-                $sql .=  $glue . ' ' . $this->processParametricCondition(array($field => $value));
+                $sql .= $glue . ' ' . $this->processParametricCondition(array($field => $value));
             }
             $sql = substr($sql, strlen($glue) + 1);
         }
@@ -294,11 +309,25 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    public function executeSQL($sql) {
-        return $this->_dbh->query($sql);
+    public function executeSQL($sql)
+    {
+        $time = microtime(true);
+        $res  = $this->_dbh->query($sql);
+        $time = microtime(true) - $time;
+        if (class_exists('Solve\Kernel\DC')) {
+            if (DC::getDatabaseConfig('log')) {
+                DC::getEventDispatcher()->dispatchEvent('db.query', [
+                    'time'  => $time,
+                    'query' => $sql,
+                    'result' => $res
+                ]);
+            }
+        }
+        return $res;
     }
 
-    private function processParametricCondition($condition) {
+    private function processParametricCondition($condition)
+    {
         $sql = '';
         if (count($condition) > 1) {
             if ($this->isValidSQLIdentifier($condition[0])) {
@@ -309,10 +338,10 @@ class MysqlDBAdapter extends BaseDBAdapter {
                     $sql .= ' = ' . $this->escapeOne($condition[1]);
                 }
             } else {
-                $savedParams = $this->_pregParametricParams;
-                $this->_pregParametricParams = $condition;
-                $sql = preg_replace_callback('#:[dfsbna\?]#', array($this, 'onPregParameterCallback'), $condition[0]);
-                $this->_pregParametricParams = $savedParams;
+                $savedParams                  = $this->_pregParametricParams;
+                $this->_pregParametricParams  = $condition;
+                $sql                          = preg_replace_callback('#:[dfsbna\?]#', array($this, 'onPregParameterCallback'), $condition[0]);
+                $this->_pregParametricParams  = $savedParams;
                 $this->_pregParametricCounter = 1;
             }
         } else {
@@ -322,11 +351,11 @@ class MysqlDBAdapter extends BaseDBAdapter {
                 if (array_key_exists(0, $condition)) {
                     $condition = $condition[0];
                 }
-                foreach($condition as $key=>$value) {
+                foreach ($condition as $key => $value) {
                     if (is_scalar($value) || is_null($value)) {
-                        $sql .=  $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
+                        $sql .= $this->escapeSqlName($key) . ' = ' . $this->escapeOne($value);
                     } else {
-                        $sql .=  $this->escapeSqlName($key) . ' IN (' . $this->escape($value) . ')';
+                        $sql .= $this->escapeSqlName($key) . ' IN (' . $this->escape($value) . ')';
                     }
                     $sql .= ' AND ';
                 }
@@ -336,7 +365,8 @@ class MysqlDBAdapter extends BaseDBAdapter {
         return $sql;
     }
 
-    private function onPregParameterCallback($params) {
+    private function onPregParameterCallback($params)
+    {
         if (array_key_exists($this->_pregParametricCounter, $this->_pregParametricParams)) {
             if ($params[0] == ':d') {
                 return intval($this->_pregParametricParams[$this->_pregParametricCounter++]);
@@ -356,10 +386,11 @@ class MysqlDBAdapter extends BaseDBAdapter {
      * Escape on value using database driver specific
      *
      * @param mixed $value to be escaped
-     * @param mixed $type force type definition
+     * @param mixed $type  force type definition
      * @return mixed escaped
      */
-    protected function escapeOne($value, $type = false) {
+    protected function escapeOne($value, $type = false)
+    {
         if ($type === false) {
             $type = gettype($value);
         }
@@ -377,7 +408,8 @@ class MysqlDBAdapter extends BaseDBAdapter {
         }
     }
 
-    public function __destruct() {
+    public function __destruct()
+    {
     }
 
 

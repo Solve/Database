@@ -83,7 +83,7 @@ class ModelCollection implements \ArrayAccess, \IteratorAggregate, \Countable {
          * @var QC $criteria
          * @var QC $qc
          */
-        if (is_object($criteria) && $criteria->getModifier('rawSelect')) {
+        if (is_object($criteria) && ($criteria->getModifier('rawSelect') || $criteria->getTables())) {
             $qc = $criteria;
         } else {
             $qc = QC::create($this->_tableName);
