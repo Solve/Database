@@ -631,4 +631,16 @@ class Model implements ModelInterface, \ArrayAccess, \IteratorAggregate, \Counta
         unset($this->_data[$offset]);
     }
 
+    public function __wakeup()
+    {
+        $this->initializeAbilities();
+        $abilities = $this->_structure->getAbilities();
+        if (empty($abilities)) $abilities = array();
+
+        foreach ($abilities as $abilityName => $abilityInfo) {
+            ModelOperator::getAbilityInstanceForModel($this->_name, $abilityName)->postLoad($this);
+        }
+    }
+
+
 }
