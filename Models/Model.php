@@ -616,9 +616,18 @@ class Model implements ModelInterface, \ArrayAccess, \IteratorAggregate, \Counta
         return $this->__get($offset);
     }
 
-    public function offsetSet($offset, $value) {
+    public function offsetSet($offset, $value)
+    {
         if (method_exists($this, 'set' . Inflector::camelize($offset))) {
             $this->{'set' . Inflector::camelize($offset)}($value);
+        }
+        switch ($this->getFieldType($offset)) {
+            case 'date':
+            case 'datetime':
+                if (is_string($value)) {
+                    $value = new \DateTime(($value));
+                }
+                break;
         }
         $this->_data[$offset]        = $value;
         $this->_changedData[$offset] = $value;
@@ -629,6 +638,12 @@ class Model implements ModelInterface, \ArrayAccess, \IteratorAggregate, \Counta
 
     public function offsetUnset($offset) {
         unset($this->_data[$offset]);
+    }
+
+    public function getFieldType($fieldName)
+    {
+        $column = $this->_getStructure()->getColumnInfo($fieldName);
+        return !empty($column['type']) ? $column['type'] : 'string';
     }
 
     public function __wakeup()
